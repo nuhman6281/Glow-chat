@@ -615,6 +615,12 @@ export const friendRequestsApi = {
     const endpoint = `/users/friend-requests/sent${queryParams.toString() ? `?${queryParams}` : ""}`;
     return makeRequest(endpoint);
   },
+
+  cancelFriendRequest: async (requestId: string): Promise<ApiResponse<any>> => {
+    return makeRequest(`/users/friend-requests/cancel/${requestId}`, {
+      method: "DELETE",
+    });
+  },
 };
 
 // Contacts API

@@ -31,6 +31,7 @@ import { usersApi, contactsApi, friendRequestsApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { AddContactDialog } from "@/components/dialogs/AddContactDialog";
 import { CreateGroupDialog } from "@/components/dialogs/CreateGroupDialog";
+import { FriendRequests } from "@/components/contacts/FriendRequests";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -59,62 +60,7 @@ export default function Contacts() {
     queryFn: () => contactsApi.getContacts({ limit: 50 }),
   });
 
-  // Get friend requests
-  const { data: friendRequestsData, isLoading: isLoadingRequests } = useQuery({
-    queryKey: ["friendRequests", "received"],
-    queryFn: () => friendRequestsApi.getReceivedFriendRequests({ limit: 20 }),
-  });
 
-  // Accept friend request mutation
-  const acceptRequestMutation = useMutation({
-    mutationFn: async (requestId: string) => {
-      return friendRequestsApi.acceptFriendRequest(requestId);
-    },
-    onSuccess: () => {
-      toast({
-        title: "Friend request accepted",
-        description: "User has been added to your contacts",
-      });
-      queryClient.invalidateQueries({ queryKey: ["contacts"] });
-      queryClient.invalidateQueries({ queryKey: ["friendRequests"] });
-    },
-    onError: () => {
-      toast({
-        title: "Failed to accept request",
-        description: "Please try again",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Reject friend request mutation
-  const rejectRequestMutation = useMutation({
-    mutationFn: async (requestId: string) => {
-      return friendRequestsApi.rejectFriendRequest(requestId);
-    },
-    onSuccess: () => {
-      toast({
-        title: "Friend request rejected",
-        description: "Request has been declined",
-      });
-      queryClient.invalidateQueries({ queryKey: ["friendRequests"] });
-    },
-    onError: () => {
-      toast({
-        title: "Failed to reject request",
-        description: "Please try again",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleAcceptRequest = (requestId: string) => {
-    acceptRequestMutation.mutate(requestId);
-  };
-
-  const handleRejectRequest = (requestId: string) => {
-    rejectRequestMutation.mutate(requestId);
-  };
 
   const handleStartChat = (userId: string) => {
     // TODO: Navigate to chat or create new chat
@@ -133,7 +79,6 @@ export default function Contacts() {
   };
 
   const contacts = contactsData?.data?.contacts || [];
-  const friendRequests = friendRequestsData?.data?.friendRequests || [];
 
   const filteredContacts = contacts.filter(
     (contact: any) =>
@@ -215,7 +160,7 @@ export default function Contacts() {
           </TabsTrigger>
           <TabsTrigger value="requests" className="flex items-center gap-2">
             <UserCheck className="w-4 h-4" />
-            Friend Requests ({friendRequests.length})
+            Friend Requests
           </TabsTrigger>
         </TabsList>
 
@@ -360,90 +305,7 @@ export default function Contacts() {
         </TabsContent>
 
         <TabsContent value="requests" className="space-y-4">
-          {isLoadingRequests ? (
-            <div className="space-y-4">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <Card key={i}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-4">
-                      <Skeleton className="w-12 h-12 rounded-full" />
-                      <div className="flex-1 space-y-2">
-                        <Skeleton className="h-4 w-32" />
-                        <Skeleton className="h-3 w-24" />
-                      </div>
-                      <div className="flex gap-2">
-                        <Skeleton className="w-16 h-8" />
-                        <Skeleton className="w-16 h-8" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : friendRequests.length === 0 ? (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <UserCheck className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No friend requests</h3>
-                <p className="text-muted-foreground">
-                  You don't have any pending friend requests
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-4">
-              {friendRequests.map((request: any) => {
-                const sender = typeof request.sender === "object" ? request.sender : null;
-                if (!sender) return null;
-
-                return (
-                  <Card key={request._id}>
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-4">
-                        <Avatar className="w-12 h-12">
-                          <AvatarImage src={sender.avatar} />
-                          <AvatarFallback>
-                            {sender.firstName[0]}
-                            {sender.lastName[0]}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold truncate">
-                            {sender.firstName} {sender.lastName}
-                          </h3>
-                          <p className="text-sm text-muted-foreground truncate">
-                            @{sender.username}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Sent {formatLastSeen(request.createdAt)}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() => handleAcceptRequest(request._id)}
-                            disabled={acceptRequestMutation.isPending}
-                          >
-                            <Check className="w-4 h-4 mr-1" />
-                            Accept
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleRejectRequest(request._id)}
-                            disabled={rejectRequestMutation.isPending}
-                          >
-                            <X className="w-4 h-4 mr-1" />
-                            Decline
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
+          <FriendRequests />
         </TabsContent>
       </Tabs>
     </div>
