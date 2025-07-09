@@ -1,6 +1,9 @@
 # Multi-stage build for Node.js backend
 FROM node:18-alpine AS builder
 
+# Enable corepack for Yarn version management
+RUN corepack enable
+
 # Set working directory
 WORKDIR /app
 
@@ -19,6 +22,9 @@ RUN yarn build:server
 
 # Production stage
 FROM node:18-alpine AS production
+
+# Enable corepack for Yarn version management
+RUN corepack enable
 
 # Install curl for health checks
 RUN apk add --no-cache curl
