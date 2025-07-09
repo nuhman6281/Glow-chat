@@ -77,8 +77,10 @@ services:
       dockerfile: Dockerfile.server
     container_name: glow-chat-backend
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
-      NODE_ENV: production
+      NODE_ENV: development
       PORT: 3000
       
       # Database
@@ -90,6 +92,7 @@ services:
       # Authentication
       JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-this-in-production}
       JWT_EXPIRE: 7d
+      SESSION_SECRET: ${SESSION_SECRET:-dev-session-secret-change-this-in-production-min-32-chars}
       
       # CORS
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173,https://yourdomain.com}
