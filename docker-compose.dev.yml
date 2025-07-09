@@ -1,0 +1,48 @@
+version: "3.8"
+
+services:
+  backend:
+    # Override the build context to enable development mode
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development # Assumes multi-stage Dockerfile with dev stage
+    # Mount source code for live-reload
+    volumes:
+      - ./backend:/app
+      - /app/node_modules # Prevent node_modules from being overwritten
+    # Override command to use development server with nodemon
+    command: npm run dev
+    environment:
+      - NODE_ENV=development
+      - DEBUG=true
+      - ENABLE_SWAGGER=true
+    # Enable file watching for live-reload
+    stdin_open: true
+    tty: true
+
+  # Enable frontend service for development
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development # Assumes multi-stage Dockerfile with dev stage
+    ports:
+      - "8080:8080" # Changed from 5173 to 8080 for consistency
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules # Prevent node_modules from being overwritten
+    # Override command to use development server
+    command: npm run dev -- --host 0.0.0.0 --port 8080
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:3000}
+      - VITE_WS_URL=${VITE_WS_URL:-ws://localhost:3000}
+    depends_on:
+      - backend
+    networks:
+      - chat-net
+    restart: unless-stopped
+    # Enable file watching for live-reload
+    stdin_open: true
+    tty: true

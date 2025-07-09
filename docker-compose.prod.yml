@@ -1,0 +1,406 @@
+version: "3.8"
+
+services:
+  # Reverse Proxy / Load Balancer
+  reverse-proxy:
+    image: traefik:v3.1
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.email=${ACME_EMAIL:-admin@example.com}"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+      - "--log.level=INFO"
+      - "--accesslog=true"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8088:8080" # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-ssl-certs:/letsencrypt
+    networks:
+      - chat-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.1"
+          memory: 256M
+
+  # Backend API Service
+  backend:
+    image: glow-lab/backend:${BACKEND_VERSION:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+      target: production
+    environment:
+      # Server Configuration
+      - NODE_ENV=production
+      - PORT=3000
+      - BACKEND_PORT=3000
+
+      # Database Configuration
+      - MONGODB_URI=mongodb://mongo:27017/glow-chat
+      - MONGO_URI=mongodb://mongo:27017/glow-chat
+      - MONGO_DB_NAME=glow-chat
+      - MONGO_ROOT_USERNAME=${MONGO_ROOT_USERNAME}
+      - MONGO_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD}
+      - MONGO_PORT=27017
+
+      # Redis Configuration
+      - REDIS_URL=redis://redis:6379
+      - REDIS_PORT=6379
+
+      # JWT Configuration
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}
+
+      # Client Configuration
+      - CLIENT_URL=${CLIENT_URL:-https://chat.example.com}
+      - CORS_ORIGIN=${CORS_ORIGIN:-https://chat.example.com}
+
+      # API Configuration
+      - API_BASE_URL=${API_BASE_URL:-https://api.example.com}
+
+      # Security Configuration
+      - SESSION_SECRET=${SESSION_SECRET}
+      - BCRYPT_SALT_ROUNDS=${BCRYPT_SALT_ROUNDS:-12}
+
+      # File Upload Configuration
+      - MAX_FILE_SIZE=${MAX_FILE_SIZE:-5242880}
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+
+      # Email Configuration
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - EMAIL_FROM=${EMAIL_FROM}
+
+      # Logging Configuration
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_FILE=${LOG_FILE:-logs/app.log}
+
+      # Performance Configuration
+      - DB_POOL_SIZE=${DB_POOL_SIZE:-20}
+      - DB_TIMEOUT=${DB_TIMEOUT:-30000}
+
+      # Production Settings
+      - DEBUG=false
+      - ENABLE_SWAGGER=false
+    depends_on:
+      - mongo
+      - redis
+    networks:
+      - chat-net
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        monitor: 60s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`${API_DOMAIN:-api.example.com}`)"
+      - "traefik.http.routers.backend.entrypoints=websecure"
+      - "traefik.http.routers.backend.tls.certresolver=myresolver"
+      - "traefik.http.services.backend.loadbalancer.server.port=3000"
+      - "traefik.http.routers.backend.middlewares=cors"
+      - "traefik.http.middlewares.cors.headers.accesscontrolallowmethods=GET,OPTIONS,PUT,POST,DELETE,PATCH"
+      - "traefik.http.middlewares.cors.headers.accesscontrolalloworiginlist=https://${FRONTEND_DOMAIN:-chat.example.com}"
+      - "traefik.http.middlewares.cors.headers.accesscontrolmaxage=100"
+      - "traefik.http.middlewares.cors.headers.addvaryheader=true"
+
+  # Frontend Web Service
+  frontend:
+    image: glow-lab/frontend:${FRONTEND_VERSION:-latest}
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.frontend
+      target: production
+    networks:
+      - chat-net
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:80/",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.1"
+          memory: 128M
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        monitor: 60s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`${FRONTEND_DOMAIN:-chat.example.com}`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls.certresolver=myresolver"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+
+  # MongoDB Database
+  mongo:
+    image: mongo:6.0
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_ROOT_USERNAME}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD}
+      - MONGO_INITDB_DATABASE=glow-chat
+    volumes:
+      - mongo-data:/data/db
+      - mongo-config:/data/configdb
+      - mongo-backups:/backups
+    networks:
+      - chat-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 1G
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    command: mongod --auth --bind_ip_all --replSet rs0
+
+  # Redis Cache & Session Store
+  redis:
+    image: redis:7.0-alpine
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-defaultpassword}
+    volumes:
+      - redis-data:/data
+      - redis-backups:/backups
+    networks:
+      - chat-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.1"
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+
+  # Backup Service
+  backup:
+    image: alpine:latest
+    volumes:
+      - mongo-backups:/mongo-backups
+      - redis-backups:/redis-backups
+      - backup-scripts:/scripts
+    networks:
+      - chat-net
+    restart: unless-stopped
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: 128M
+        reservations:
+          cpus: "0.05"
+          memory: 64M
+    command: |
+      sh -c "
+        apk add --no-cache mongodb-tools redis
+        while true; do
+          echo 'Starting backup process...'
+          mongodump --host mongo:27017 --username ${MONGO_ROOT_USERNAME} --password ${MONGO_ROOT_PASSWORD} --authenticationDatabase admin --out /mongo-backups/$(date +%Y%m%d_%H%M%S)
+          redis-cli -h redis -p 6379 --rdb /redis-backups/dump_$(date +%Y%m%d_%H%M%S).rdb
+          find /mongo-backups -type d -mtime +7 -exec rm -rf {} +
+          find /redis-backups -name '*.rdb' -mtime +7 -delete
+          echo 'Backup completed. Next backup in 24 hours.'
+          sleep 86400
+        done
+      "
+
+  # Monitoring with Prometheus (optional)
+  prometheus:
+    image: prom/prometheus:latest
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--web.enable-lifecycle"
+    volumes:
+      - prometheus-data:/prometheus
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - chat-net
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:9090/-/healthy",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.1"
+          memory: 256M
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.prometheus.rule=Host(`${MONITORING_DOMAIN:-monitoring.example.com}`)"
+      - "traefik.http.routers.prometheus.entrypoints=websecure"
+      - "traefik.http.routers.prometheus.tls.certresolver=myresolver"
+      - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
+
+volumes:
+  mongo-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${MONGO_DATA_PATH:-./volumes/mongo/data}
+  mongo-config:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${MONGO_CONFIG_PATH:-./volumes/mongo/config}
+  mongo-backups:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${MONGO_BACKUP_PATH:-./volumes/mongo/backups}
+  redis-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${REDIS_DATA_PATH:-./volumes/redis/data}
+  redis-backups:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${REDIS_BACKUP_PATH:-./volumes/redis/backups}
+  backup-scripts:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${BACKUP_SCRIPTS_PATH:-./volumes/backup/scripts}
+  traefik-ssl-certs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${TRAEFIK_CERTS_PATH:-./volumes/traefik/certs}
+  prometheus-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${PROMETHEUS_DATA_PATH:-./volumes/prometheus/data}
+
+networks:
+  chat-net:
+    driver: overlay
+    attachable: true
