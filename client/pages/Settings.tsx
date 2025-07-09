@@ -1,554 +1,669 @@
-import { useState, useEffect } from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { UserAvatar } from "@/components/ui/UserAvatar";
 import {
+  Settings,
   User,
   Bell,
-  Shield,
-  Palette,
-  Monitor,
-  Smartphone,
-  Globe,
-  HelpCircle,
-  LogOut,
-  ChevronRight,
+  Volume2,
   Moon,
   Sun,
-  Volume2,
+  Monitor,
+  Shield,
+  Palette,
   MessageSquare,
   Phone,
   Video,
+  FileText,
+  Download,
+  Trash2,
+  Save,
+  X,
+  Users,
+  Clock,
+  Check,
+  UserPlus,
 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usersApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
-
-interface UserSettings {
-  notifications: {
-    push: boolean;
-    sound: boolean;
-    readReceipts: boolean;
-    lastSeen: "everyone" | "contacts" | "nobody";
-  };
-  appearance: {
-    darkMode: boolean;
-    themeColor: string;
-    fontSize: "small" | "medium" | "large";
-  };
-  privacy: {
-    messageEncryption: boolean;
-    screenLock: boolean;
-    disappearingMessages: boolean;
-  };
-  chat: {
-    mediaAutoDownload: "always" | "wifi" | "never";
-    chatBackup: boolean;
-    messageSearch: boolean;
-  };
-  calls: {
-    quality: "low" | "medium" | "high";
-    backgroundBlur: boolean;
-    noiseCancellation: boolean;
-  };
-}
+import { useTheme } from "@/hooks/use-theme";
+import { useSound } from "@/hooks/use-sound";
 
 export default function Settings() {
-  const { user, token, logout } = useAuth();
+  const [activeTab, setActiveTab] = useState("profile");
   const { toast } = useToast();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { theme, setTheme } = useTheme();
+  const { volume, setVolume, isMuted, toggleMute } = useSound();
 
-  // Default settings
-  const [settings, setSettings] = useState<UserSettings>({
-    notifications: {
-      push: true,
-      sound: true,
-      readReceipts: true,
-      lastSeen: "everyone",
-    },
-    appearance: {
-      darkMode: false,
-      themeColor: "primary",
-      fontSize: "medium",
-    },
-    privacy: {
-      messageEncryption: true,
-      screenLock: false,
-      disappearingMessages: false,
-    },
-    chat: {
-      mediaAutoDownload: "wifi",
-      chatBackup: false,
-      messageSearch: true,
-    },
-    calls: {
-      quality: "high",
-      backgroundBlur: true,
-      noiseCancellation: true,
-    },
-  });
-
-  // Fetch user settings
+  // Get current user
   const { data: userData, isLoading } = useQuery({
     queryKey: ["user", "me"],
     queryFn: () => usersApi.getMe(),
-    enabled: !!token,
   });
 
-  // Update user settings mutation
-  const updateSettingsMutation = useMutation({
-    mutationFn: (newSettings: Partial<UserSettings>) =>
-      usersApi.updateMe({ settings: newSettings }),
+  const user = userData?.data?.user;
+
+  // Update user mutation
+  const updateUserMutation = useMutation({
+    mutationFn: async (userData: any) => {
+      return usersApi.updateMe(userData);
+    },
     onSuccess: () => {
       toast({
-        title: "Settings updated",
-        description: "Your settings have been saved",
+        title: "Profile updated",
+        description: "Your profile has been updated successfully",
       });
       queryClient.invalidateQueries({ queryKey: ["user", "me"] });
     },
-    onError: (error: any) => {
+    onError: () => {
       toast({
-        title: "Failed to update settings",
-        description: error.message || "Please try again",
+        title: "Failed to update profile",
+        description: "Please try again",
         variant: "destructive",
       });
     },
   });
 
-  // Initialize settings when user data is loaded
-  useEffect(() => {
-    if (userData?.data?.settings) {
-      setSettings({ ...settings, ...userData.data.settings });
-    }
-  }, [userData]);
+  // Profile form state
+  const [profileForm, setProfileForm] = useState({
+    firstName: user?.firstName || "",
+    lastName: user?.lastName || "",
+    username: user?.username || "",
+    email: user?.email || "",
+    bio: user?.bio || "",
+  });
 
-  const handleSettingChange = (
-    category: keyof UserSettings,
-    key: string,
-    value: any,
-  ) => {
-    const newSettings = {
-      ...settings,
-      [category]: {
-        ...settings[category],
-        [key]: value,
-      },
-    };
-    setSettings(newSettings);
+  // Notification settings state
+  const [notificationSettings, setNotificationSettings] = useState({
+    messageNotifications: true,
+    callNotifications: true,
+    friendRequestNotifications: true,
+    groupNotifications: true,
+    soundNotifications: true,
+    desktopNotifications: true,
+    emailNotifications: false,
+  });
 
-    // Update backend
-    updateSettingsMutation.mutate({
-      [category]: {
-        [key]: value,
-      },
+  // Privacy settings state
+  const [privacySettings, setPrivacySettings] = useState({
+    showOnlineStatus: true,
+    showLastSeen: true,
+    allowFriendRequests: true,
+    allowMessagesFromStrangers: false,
+    showReadReceipts: true,
+    showTypingIndicator: true,
+  });
+
+  // Update profile form when user data loads
+  if (user && !profileForm.firstName) {
+    setProfileForm({
+      firstName: user.firstName || "",
+      lastName: user.lastName || "",
+      username: user.username || "",
+      email: user.email || "",
+      bio: user.bio || "",
     });
+  }
+
+  const handleProfileSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateUserMutation.mutate(profileForm);
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
+  const handleProfileChange = (field: string, value: string) => {
+    setProfileForm(prev => ({ ...prev, [field]: value }));
   };
 
-  const SettingsSection = ({
-    icon: Icon,
-    title,
-    description,
-    children,
-  }: {
-    icon: any;
-    title: string;
-    description?: string;
-    children: React.ReactNode;
-  }) => (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <Icon className="w-5 h-5" />
-          {title}
-        </CardTitle>
-        {description && <CardDescription>{description}</CardDescription>}
-      </CardHeader>
-      <CardContent className="space-y-4">{children}</CardContent>
-    </Card>
-  );
+  const handleNotificationChange = (setting: string, value: boolean) => {
+    setNotificationSettings(prev => ({ ...prev, [setting]: value }));
+  };
 
-  const SettingsItem = ({
-    label,
-    description,
-    children,
-    action,
-  }: {
-    label: string;
-    description?: string;
-    children?: React.ReactNode;
-    action?: () => void;
-  }) => (
-    <div
-      className="flex items-center justify-between py-2 cursor-pointer hover:bg-muted/50 rounded-lg px-2 -mx-2"
-      onClick={action}
-    >
-      <div className="space-y-1">
-        <Label className="text-sm font-medium cursor-pointer">{label}</Label>
-        {description && (
-          <p className="text-xs text-muted-foreground">{description}</p>
-        )}
-      </div>
-      {children ||
-        (action && <ChevronRight className="w-4 h-4 text-muted-foreground" />)}
-    </div>
-  );
+  const handlePrivacyChange = (setting: string, value: boolean) => {
+    setPrivacySettings(prev => ({ ...prev, [setting]: value }));
+  };
+
+  const getThemeIcon = () => {
+    switch (theme) {
+      case "light":
+        return <Sun className="w-4 h-4" />;
+      case "dark":
+        return <Moon className="w-4 h-4" />;
+      default:
+        return <Monitor className="w-4 h-4" />;
+    }
+  };
+
+  const getThemeLabel = () => {
+    switch (theme) {
+      case "light":
+        return "Light";
+      case "dark":
+        return "Dark";
+      default:
+        return "System";
+    }
+  };
 
   if (isLoading) {
     return (
-      <AppLayout>
-        <div className="h-full overflow-y-auto p-6 space-y-6">
-          <div className="animate-pulse space-y-6">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Card key={i}>
-                <CardHeader>
-                  <div className="h-6 bg-muted rounded w-32"></div>
-                  <div className="h-4 bg-muted rounded w-48"></div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {Array.from({ length: 3 }).map((_, j) => (
-                    <div key={j} className="flex items-center justify-between">
-                      <div className="space-y-1">
-                        <div className="h-4 bg-muted rounded w-24"></div>
-                        <div className="h-3 bg-muted rounded w-32"></div>
-                      </div>
-                      <div className="h-6 bg-muted rounded w-12"></div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            ))}
+      <div className="container mx-auto p-4 max-w-4xl">
+        <div className="space-y-6">
+          <div className="flex items-center gap-2">
+            <Settings className="w-6 h-6" />
+            <h1 className="text-3xl font-bold">Settings</h1>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="space-y-4">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="h-12 bg-muted rounded animate-pulse" />
+              ))}
+            </div>
+            <div className="md:col-span-2">
+              <div className="h-96 bg-muted rounded animate-pulse" />
+            </div>
           </div>
         </div>
-      </AppLayout>
+      </div>
     );
   }
 
   return (
-    <AppLayout
-      header={
-        <div>
-          <h1 className="text-xl font-semibold">Settings</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage your account and application preferences
-          </p>
-        </div>
-      }
-    >
-      <div className="h-full overflow-y-auto p-6 space-y-6">
-        {/* Account */}
-        <SettingsSection
-          icon={User}
-          title="Account & Profile"
-          description="Manage your personal information and account settings"
-        >
-          <SettingsItem
-            label="Edit Profile"
-            description="Update your name, photo, and status"
-            action={() => navigate("/profile")}
-          />
-          <SettingsItem
-            label="Privacy Settings"
-            description="Control who can see your information"
-          />
-          <SettingsItem
-            label="Blocked Contacts"
-            description={`${userData?.data?.blockedUsers?.length || 0} blocked users`}
-          />
-          <Separator />
-          <SettingsItem
-            label="Account Security"
-            description="Two-factor authentication, password"
-          />
-          <SettingsItem
-            label="Download My Data"
-            description="Export your chat history and files"
-          />
-        </SettingsSection>
-
-        {/* Notifications */}
-        <SettingsSection
-          icon={Bell}
-          title="Notifications"
-          description="Configure how you receive notifications"
-        >
-          <SettingsItem
-            label="Push Notifications"
-            description="Receive notifications when the app is closed"
-          >
-            <Switch
-              checked={settings.notifications.push}
-              onCheckedChange={(checked) =>
-                handleSettingChange("notifications", "push", checked)
-              }
-            />
-          </SettingsItem>
-          <SettingsItem
-            label="Sound & Vibration"
-            description="Play sounds for messages and calls"
-          >
-            <Switch
-              checked={settings.notifications.sound}
-              onCheckedChange={(checked) =>
-                handleSettingChange("notifications", "sound", checked)
-              }
-            />
-          </SettingsItem>
-          <Separator />
-          <SettingsItem
-            label="Read Receipts"
-            description="Let others know when you've read their messages"
-          >
-            <Switch
-              checked={settings.notifications.readReceipts}
-              onCheckedChange={(checked) =>
-                handleSettingChange("notifications", "readReceipts", checked)
-              }
-            />
-          </SettingsItem>
-          <SettingsItem
-            label="Last Seen"
-            description="Control who can see when you were last online"
-          >
-            <Badge variant="secondary" className="capitalize">
-              {settings.notifications.lastSeen}
-            </Badge>
-          </SettingsItem>
-          <SettingsItem
-            label="Do Not Disturb"
-            description="Set quiet hours and exceptions"
-          />
-        </SettingsSection>
-
-        {/* Appearance */}
-        <SettingsSection
-          icon={Palette}
-          title="Appearance"
-          description="Customize the look and feel"
-        >
-          <SettingsItem
-            label="Dark Mode"
-            description="Switch between light and dark theme"
-          >
-            <Switch
-              checked={settings.appearance.darkMode}
-              onCheckedChange={(checked) =>
-                handleSettingChange("appearance", "darkMode", checked)
-              }
-            />
-          </SettingsItem>
-          <SettingsItem
-            label="Theme Color"
-            description="Choose your accent color"
-          >
-            <div className="flex gap-2">
-              <div className="w-6 h-6 rounded-full bg-primary border-2 border-primary-foreground"></div>
-              <div className="w-6 h-6 rounded-full bg-blue-500"></div>
-              <div className="w-6 h-6 rounded-full bg-green-500"></div>
-            </div>
-          </SettingsItem>
-          <SettingsItem label="Font Size" description="Adjust text size">
-            <Badge variant="secondary" className="capitalize">
-              {settings.appearance.fontSize}
-            </Badge>
-          </SettingsItem>
-          <SettingsItem
-            label="Chat Wallpaper"
-            description="Customize chat backgrounds"
-          />
-        </SettingsSection>
-
-        {/* Privacy & Security */}
-        <SettingsSection
-          icon={Shield}
-          title="Privacy & Security"
-          description="Control your privacy and security settings"
-        >
-          <SettingsItem
-            label="Message Encryption"
-            description="End-to-end encryption settings"
-          >
-            <Badge
-              variant="secondary"
-              className={
-                settings.privacy.messageEncryption
-                  ? "bg-green-100 text-green-700"
-                  : "bg-red-100 text-red-700"
-              }
-            >
-              {settings.privacy.messageEncryption ? "Enabled" : "Disabled"}
-            </Badge>
-          </SettingsItem>
-          <SettingsItem
-            label="Screen Lock"
-            description="Require authentication to open app"
-          >
-            <Switch
-              checked={settings.privacy.screenLock}
-              onCheckedChange={(checked) =>
-                handleSettingChange("privacy", "screenLock", checked)
-              }
-            />
-          </SettingsItem>
-          <SettingsItem
-            label="Disappearing Messages"
-            description="Auto-delete messages after time"
-          >
-            <Switch
-              checked={settings.privacy.disappearingMessages}
-              onCheckedChange={(checked) =>
-                handleSettingChange("privacy", "disappearingMessages", checked)
-              }
-            />
-          </SettingsItem>
-        </SettingsSection>
-
-        {/* Chat Settings */}
-        <SettingsSection
-          icon={MessageSquare}
-          title="Chat Settings"
-          description="Configure chat behavior and features"
-        >
-          <SettingsItem
-            label="Media Auto-Download"
-            description="Automatically download photos and videos"
-          >
-            <Badge variant="secondary" className="capitalize">
-              {settings.chat.mediaAutoDownload}
-            </Badge>
-          </SettingsItem>
-          <SettingsItem
-            label="Chat Backup"
-            description="Backup your conversations to cloud"
-          >
-            <Switch
-              checked={settings.chat.chatBackup}
-              onCheckedChange={(checked) =>
-                handleSettingChange("chat", "chatBackup", checked)
-              }
-            />
-          </SettingsItem>
-          <SettingsItem
-            label="Message Search"
-            description="Include messages in device search"
-          >
-            <Switch
-              checked={settings.chat.messageSearch}
-              onCheckedChange={(checked) =>
-                handleSettingChange("chat", "messageSearch", checked)
-              }
-            />
-          </SettingsItem>
-        </SettingsSection>
-
-        {/* Calls */}
-        <SettingsSection
-          icon={Phone}
-          title="Calls & Video"
-          description="Configure call settings and quality"
-        >
-          <SettingsItem
-            label="Call Quality"
-            description="Adjust video and audio quality"
-          >
-            <Badge variant="secondary" className="capitalize">
-              {settings.calls.quality}
-            </Badge>
-          </SettingsItem>
-          <SettingsItem
-            label="Background Blur"
-            description="Blur background in video calls"
-          >
-            <Switch
-              checked={settings.calls.backgroundBlur}
-              onCheckedChange={(checked) =>
-                handleSettingChange("calls", "backgroundBlur", checked)
-              }
-            />
-          </SettingsItem>
-          <SettingsItem
-            label="Noise Cancellation"
-            description="Reduce background noise"
-          >
-            <Switch
-              checked={settings.calls.noiseCancellation}
-              onCheckedChange={(checked) =>
-                handleSettingChange("calls", "noiseCancellation", checked)
-              }
-            />
-          </SettingsItem>
-        </SettingsSection>
-
-        {/* Support */}
-        <SettingsSection
-          icon={HelpCircle}
-          title="Help & Support"
-          description="Get help and provide feedback"
-        >
-          <SettingsItem
-            label="Help Center"
-            description="Browse help articles and tutorials"
-          />
-          <SettingsItem
-            label="Contact Support"
-            description="Get help from our support team"
-          />
-          <SettingsItem
-            label="Send Feedback"
-            description="Help us improve the app"
-          />
-          <SettingsItem
-            label="Report a Problem"
-            description="Report bugs or issues"
-          />
-          <Separator />
-          <SettingsItem label="Terms of Service" />
-          <SettingsItem label="Privacy Policy" />
-          <SettingsItem label="About" description="Version 1.0.0" />
-        </SettingsSection>
-
-        {/* Account Actions */}
-        <Card className="border-destructive/20">
-          <CardHeader>
-            <CardTitle className="text-destructive flex items-center gap-2">
-              <LogOut className="w-5 h-5" />
-              Account Actions
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <Button
-                variant="outline"
-                className="w-full justify-start text-muted-foreground"
-                onClick={handleLogout}
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Sign Out
-              </Button>
-              <Button variant="destructive" className="w-full justify-start">
-                Delete Account
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+    <div className="container mx-auto p-4 max-w-4xl">
+      <div className="flex items-center gap-2 mb-6">
+        <Settings className="w-6 h-6" />
+        <h1 className="text-3xl font-bold">Settings</h1>
       </div>
-    </AppLayout>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="profile" className="flex items-center gap-2">
+            <User className="w-4 h-4" />
+            Profile
+          </TabsTrigger>
+          <TabsTrigger value="notifications" className="flex items-center gap-2">
+            <Bell className="w-4 h-4" />
+            Notifications
+          </TabsTrigger>
+          <TabsTrigger value="appearance" className="flex items-center gap-2">
+            <Palette className="w-4 h-4" />
+            Appearance
+          </TabsTrigger>
+          <TabsTrigger value="privacy" className="flex items-center gap-2">
+            <Shield className="w-4 h-4" />
+            Privacy
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Profile Tab */}
+        <TabsContent value="profile" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Profile Information</CardTitle>
+              <CardDescription>
+                Update your personal information and profile details
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleProfileSubmit} className="space-y-6">
+                <div className="flex items-center gap-4">
+                  <UserAvatar
+                    name={`${user?.firstName} ${user?.lastName}`}
+                    imageUrl={user?.avatar}
+                    className="w-20 h-20"
+                  />
+                  <div>
+                    <Button variant="outline" size="sm">
+                      Change Avatar
+                    </Button>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      JPG, PNG or GIF. Max size 2MB.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName">First Name</Label>
+                    <Input
+                      id="firstName"
+                      value={profileForm.firstName}
+                      onChange={(e) => handleProfileChange("firstName", e.target.value)}
+                      placeholder="Enter your first name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName">Last Name</Label>
+                    <Input
+                      id="lastName"
+                      value={profileForm.lastName}
+                      onChange={(e) => handleProfileChange("lastName", e.target.value)}
+                      placeholder="Enter your last name"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="username">Username</Label>
+                  <Input
+                    id="username"
+                    value={profileForm.username}
+                    onChange={(e) => handleProfileChange("username", e.target.value)}
+                    placeholder="Enter your username"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={profileForm.email}
+                    onChange={(e) => handleProfileChange("email", e.target.value)}
+                    placeholder="Enter your email"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="bio">Bio</Label>
+                  <textarea
+                    id="bio"
+                    value={profileForm.bio}
+                    onChange={(e) => handleProfileChange("bio", e.target.value)}
+                    placeholder="Tell us about yourself..."
+                    className="w-full min-h-[100px] p-3 border border-input rounded-md bg-background text-foreground resize-none"
+                  />
+                </div>
+
+                <Button type="submit" disabled={updateUserMutation.isPending}>
+                  <Save className="w-4 h-4 mr-2" />
+                  {updateUserMutation.isPending ? "Saving..." : "Save Changes"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Notifications Tab */}
+        <TabsContent value="notifications" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Notification Preferences</CardTitle>
+              <CardDescription>
+                Choose what notifications you want to receive
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <MessageSquare className="w-5 h-5" />
+                    <div>
+                      <Label htmlFor="messageNotifications">Message Notifications</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Get notified when you receive new messages
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    id="messageNotifications"
+                    checked={notificationSettings.messageNotifications}
+                    onCheckedChange={(checked) => handleNotificationChange("messageNotifications", checked)}
+                  />
+                </div>
+
+                <Separator />
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Phone className="w-5 h-5" />
+                    <div>
+                      <Label htmlFor="callNotifications">Call Notifications</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Get notified for incoming calls
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    id="callNotifications"
+                    checked={notificationSettings.callNotifications}
+                    onCheckedChange={(checked) => handleNotificationChange("callNotifications", checked)}
+                  />
+                </div>
+
+                <Separator />
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <User className="w-5 h-5" />
+                    <div>
+                      <Label htmlFor="friendRequestNotifications">Friend Request Notifications</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Get notified for new friend requests
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    id="friendRequestNotifications"
+                    checked={notificationSettings.friendRequestNotifications}
+                    onCheckedChange={(checked) => handleNotificationChange("friendRequestNotifications", checked)}
+                  />
+                </div>
+
+                <Separator />
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Users className="w-5 h-5" />
+                    <div>
+                      <Label htmlFor="groupNotifications">Group Notifications</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Get notified for group activities
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    id="groupNotifications"
+                    checked={notificationSettings.groupNotifications}
+                    onCheckedChange={(checked) => handleNotificationChange("groupNotifications", checked)}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Sound Settings</CardTitle>
+              <CardDescription>
+                Configure notification sounds and volume
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Volume2 className="w-5 h-5" />
+                  <div>
+                    <Label htmlFor="soundNotifications">Sound Notifications</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Play sounds for notifications
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  id="soundNotifications"
+                  checked={notificationSettings.soundNotifications}
+                  onCheckedChange={(checked) => handleNotificationChange("soundNotifications", checked)}
+                />
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>Volume</Label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={toggleMute}
+                    className="h-8 w-8 p-0"
+                  >
+                    {isMuted ? <X className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                  </Button>
+                </div>
+                <Slider
+                  value={[volume]}
+                  onValueChange={([value]) => setVolume(value)}
+                  max={100}
+                  step={1}
+                  disabled={isMuted}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>0%</span>
+                  <span>{volume}%</span>
+                  <span>100%</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Appearance Tab */}
+        <TabsContent value="appearance" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Theme Settings</CardTitle>
+              <CardDescription>
+                Customize the appearance of the application
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div>
+                  <Label>Theme</Label>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Choose your preferred theme
+                  </p>
+                  <div className="grid grid-cols-3 gap-3">
+                    <Button
+                      variant={theme === "light" ? "default" : "outline"}
+                      onClick={() => setTheme("light")}
+                      className="h-20 flex-col gap-2"
+                    >
+                      <Sun className="w-6 h-6" />
+                      <span className="text-sm">Light</span>
+                    </Button>
+                    <Button
+                      variant={theme === "dark" ? "default" : "outline"}
+                      onClick={() => setTheme("dark")}
+                      className="h-20 flex-col gap-2"
+                    >
+                      <Moon className="w-6 h-6" />
+                      <span className="text-sm">Dark</span>
+                    </Button>
+                    <Button
+                      variant={theme === "system" ? "default" : "outline"}
+                      onClick={() => setTheme("system")}
+                      className="h-20 flex-col gap-2"
+                    >
+                      <Monitor className="w-6 h-6" />
+                      <span className="text-sm">System</span>
+                    </Button>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>Current Theme</Label>
+                    <p className="text-sm text-muted-foreground">
+                      {getThemeLabel()} mode is active
+                    </p>
+                  </div>
+                                     <div className="flex items-center gap-2 px-2 py-1 text-xs font-medium border border-input bg-background text-foreground rounded-md">
+                     {getThemeIcon()}
+                     {getThemeLabel()}
+                   </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Privacy Tab */}
+        <TabsContent value="privacy" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Privacy Settings</CardTitle>
+              <CardDescription>
+                Control your privacy and visibility settings
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 bg-green-500 rounded-full" />
+                    <div>
+                      <Label htmlFor="showOnlineStatus">Show Online Status</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Let others see when you're online
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    id="showOnlineStatus"
+                    checked={privacySettings.showOnlineStatus}
+                    onCheckedChange={(checked) => handlePrivacyChange("showOnlineStatus", checked)}
+                  />
+                </div>
+
+                <Separator />
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Clock className="w-5 h-5" />
+                    <div>
+                      <Label htmlFor="showLastSeen">Show Last Seen</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Show when you were last active
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    id="showLastSeen"
+                    checked={privacySettings.showLastSeen}
+                    onCheckedChange={(checked) => handlePrivacyChange("showLastSeen", checked)}
+                  />
+                </div>
+
+                <Separator />
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <UserPlus className="w-5 h-5" />
+                    <div>
+                      <Label htmlFor="allowFriendRequests">Allow Friend Requests</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Let others send you friend requests
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    id="allowFriendRequests"
+                    checked={privacySettings.allowFriendRequests}
+                    onCheckedChange={(checked) => handlePrivacyChange("allowFriendRequests", checked)}
+                  />
+                </div>
+
+                <Separator />
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <MessageSquare className="w-5 h-5" />
+                    <div>
+                      <Label htmlFor="allowMessagesFromStrangers">Messages from Strangers</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Allow non-contacts to message you
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    id="allowMessagesFromStrangers"
+                    checked={privacySettings.allowMessagesFromStrangers}
+                    onCheckedChange={(checked) => handlePrivacyChange("allowMessagesFromStrangers", checked)}
+                  />
+                </div>
+
+                <Separator />
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Check className="w-5 h-5" />
+                    <div>
+                      <Label htmlFor="showReadReceipts">Read Receipts</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Show when you've read messages
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    id="showReadReceipts"
+                    checked={privacySettings.showReadReceipts}
+                    onCheckedChange={(checked) => handlePrivacyChange("showReadReceipts", checked)}
+                  />
+                </div>
+
+                <Separator />
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <FileText className="w-5 h-5" />
+                    <div>
+                      <Label htmlFor="showTypingIndicator">Typing Indicator</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Show when you're typing a message
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    id="showTypingIndicator"
+                    checked={privacySettings.showTypingIndicator}
+                    onCheckedChange={(checked) => handlePrivacyChange("showTypingIndicator", checked)}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Data Management</CardTitle>
+              <CardDescription>
+                Manage your account data and privacy
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Export Data</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Download a copy of your data
+                  </p>
+                </div>
+                <Button variant="outline" size="sm">
+                  <Download className="w-4 h-4 mr-2" />
+                  Export
+                </Button>
+              </div>
+
+              <Separator />
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-destructive">Delete Account</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Permanently delete your account and all data
+                  </p>
+                </div>
+                <Button variant="destructive" size="sm">
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }
