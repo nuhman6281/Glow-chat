@@ -1,11 +1,11 @@
 import express from 'express';
 import { Request, Response } from 'express';
-import { protect } from '../middleware/auth';
+import { authenticate as protect } from '../middleware/auth';
 
 const router = express.Router();
 
 // Import TURN configuration
-const { getPeerConnectionConfig, generateTurnCredentials } = require('../config/turn');
+import { getPeerConnectionConfig, generateTurnCredentials } from '../config/turn.js';
 
 interface AuthRequest extends Request {
   user?: any;

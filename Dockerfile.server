@@ -1,24 +1,30 @@
 # Multi-stage build for Node.js backend
 FROM node:18-alpine AS builder
 
+# Enable corepack for Yarn version management
+RUN corepack enable
+
 # Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY server/package*.json ./
-COPY shared/ ../shared/
+# Copy package files from root
+COPY package*.json ./
+COPY yarn.lock ./
 
 # Install dependencies
-RUN npm ci --only=production && npm cache clean --force
+RUN yarn install --frozen-lockfile
 
 # Copy source code
-COPY server/ ./
+COPY . .
 
-# Build the application
-RUN npm run build
+# Build the server application
+RUN yarn build:server
 
 # Production stage
 FROM node:18-alpine AS production
+
+# Enable corepack for Yarn version management
+RUN corepack enable
 
 # Install curl for health checks
 RUN apk add --no-cache curl
@@ -30,10 +36,10 @@ RUN adduser -S nextjs -u 1001
 # Set working directory
 WORKDIR /app
 
-# Copy built application
-COPY --from=builder --chown=nextjs:nodejs /app/dist ./dist
+# Copy built application and dependencies
+COPY --from=builder --chown=nextjs:nodejs /app/dist/server ./dist
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=nextjs:nodejs /app/package*.json ./
+COPY --from=builder --chown=nextjs:nodejs /app/package.json ./
 
 # Create uploads and logs directories
 RUN mkdir -p uploads logs && chown -R nextjs:nodejs uploads logs
@@ -49,4 +55,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
   CMD curl -f http://localhost:3000/api/health || exit 1
 
 # Start the application
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/node-build.mjs"]

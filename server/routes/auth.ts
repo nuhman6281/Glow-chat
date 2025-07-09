@@ -3,6 +3,7 @@ import { body, validationResult } from 'express-validator';
 import User from '../models/User';
 import { generateToken } from '../middleware/auth';
 import rateLimit from 'express-rate-limit';
+import jwt from 'jsonwebtoken';
 
 const router = express.Router();
 
@@ -178,7 +179,6 @@ router.post('/refresh', async (req, res) => {
     }
 
     // Verify and decode token
-    const jwt = require('jsonwebtoken');
     const jwtSecret = process.env.JWT_SECRET || 'your-secret-key';
     const decoded = jwt.verify(token, jwtSecret) as { userId: string };
 

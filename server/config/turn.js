@@ -173,7 +173,7 @@ TURN Server Setup Instructions:
   }
 };
 
-module.exports = {
+export {
   getIceServers,
   generateTurnCredentials,
   validatePeerConnectionConfig,
