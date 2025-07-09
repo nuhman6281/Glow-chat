@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { Button } from "@/components/ui/button";
 import { MessageList } from "./MessageList";
@@ -36,6 +36,7 @@ export function ChatArea({
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [scrollToMessageId, setScrollToMessageId] = useState<string | undefined>();
 
   const handleRefreshMessages = () => {
     // Invalidate and refetch messages for the current chat
@@ -45,6 +46,16 @@ export function ChatArea({
     // Also invalidate chats to update last message
     queryClient.invalidateQueries({ queryKey: ["chats"] });
   };
+
+  // Reset scrollToMessageId after scrolling
+  useEffect(() => {
+    if (scrollToMessageId) {
+      const timer = setTimeout(() => {
+        setScrollToMessageId(undefined);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [scrollToMessageId]);
 
   if (!chatId) {
     return (
@@ -148,7 +159,7 @@ export function ChatArea({
           chatId={chatId}
           onClose={() => setIsSearching(false)}
           onSelectMessage={(message) => {
-            // TODO: Scroll to message
+            setScrollToMessageId(message._id);
             setIsSearching(false);
           }}
         />
@@ -158,6 +169,7 @@ export function ChatArea({
       <MessageList
         chatId={chatId}
         onReplyToMessage={(message) => setReplyTo(message)}
+        scrollToMessageId={scrollToMessageId}
       />
 
       {/* Message Input */}

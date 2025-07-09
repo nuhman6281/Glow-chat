@@ -37,9 +37,10 @@ import { MessageReply } from "./MessageReply";
 interface MessageListProps {
   chatId: string;
   onReplyToMessage?: (message: Message) => void;
+  scrollToMessageId?: string;
 }
 
-export function MessageList({ chatId, onReplyToMessage }: MessageListProps) {
+export function MessageList({ chatId, onReplyToMessage, scrollToMessageId }: MessageListProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [forwardMessage, setForwardMessage] = useState<Message | null>(null);
@@ -86,9 +87,35 @@ export function MessageList({ chatId, onReplyToMessage }: MessageListProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // Scroll to specific message
+  const scrollToMessage = (messageId: string) => {
+    const messageElement = document.getElementById(`message-${messageId}`);
+    if (messageElement) {
+      messageElement.scrollIntoView({ 
+        behavior: "smooth", 
+        block: "center" 
+      });
+      // Add highlight effect
+      messageElement.classList.add("bg-yellow-100", "dark:bg-yellow-900");
+      setTimeout(() => {
+        messageElement.classList.remove("bg-yellow-100", "dark:bg-yellow-900");
+      }, 3000);
+    }
+  };
+
   useEffect(() => {
     scrollToBottom();
   }, [messagesFromApi.length]);
+
+  // Scroll to message when scrollToMessageId changes
+  useEffect(() => {
+    if (scrollToMessageId && messagesFromApi.length > 0) {
+      // Wait for messages to render
+      setTimeout(() => {
+        scrollToMessage(scrollToMessageId);
+      }, 100);
+    }
+  }, [scrollToMessageId, messagesFromApi]);
 
   // Listen for new messages via Socket.IO
   useEffect(() => {
@@ -191,6 +218,7 @@ export function MessageList({ chatId, onReplyToMessage }: MessageListProps) {
 
     return (
       <div
+        id={`message-${message._id}`}
         className={cn(
           "flex gap-3 p-3 hover:bg-muted/30 transition-colors",
           isOwn && "flex-row-reverse",
