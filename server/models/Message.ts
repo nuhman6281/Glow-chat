@@ -113,6 +113,22 @@ messageSchema.index({ chat: 1, createdAt: -1 });
 messageSchema.index({ sender: 1 });
 messageSchema.index({ 'readBy.user': 1 });
 
+// Text index for search functionality
+messageSchema.index({ content: 'text' }, {
+  weights: {
+    content: 10
+  },
+  name: 'message_text_search'
+});
+
+// Compound index for chat search
+messageSchema.index({ chat: 1, content: 'text' }, {
+  weights: {
+    content: 10
+  },
+  name: 'chat_message_search'
+});
+
 // Validation: either content or file must be present for non-system messages
 messageSchema.pre('validate', function(next) {
   if (this.type !== 'system' && !this.content && !this.file) {

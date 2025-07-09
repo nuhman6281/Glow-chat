@@ -571,10 +571,151 @@ export const callsApi = {
   },
 };
 
+// Friend Requests API
+export const friendRequestsApi = {
+  sendFriendRequest: async (receiverId: string): Promise<ApiResponse<any>> => {
+    return makeRequest("/users/friend-requests/send", {
+      method: "POST",
+      body: JSON.stringify({ receiverId }),
+    });
+  },
+
+  acceptFriendRequest: async (requestId: string): Promise<ApiResponse<any>> => {
+    return makeRequest(`/users/friend-requests/accept/${requestId}`, {
+      method: "POST",
+    });
+  },
+
+  rejectFriendRequest: async (requestId: string): Promise<ApiResponse<any>> => {
+    return makeRequest(`/users/friend-requests/reject/${requestId}`, {
+      method: "POST",
+    });
+  },
+
+  getReceivedFriendRequests: async (params?: {
+    page?: number;
+    limit?: number;
+  }): Promise<ApiResponse<any>> => {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append("page", params.page.toString());
+    if (params?.limit) queryParams.append("limit", params.limit.toString());
+
+    const endpoint = `/users/friend-requests/received${queryParams.toString() ? `?${queryParams}` : ""}`;
+    return makeRequest(endpoint);
+  },
+
+  getSentFriendRequests: async (params?: {
+    page?: number;
+    limit?: number;
+  }): Promise<ApiResponse<any>> => {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append("page", params.page.toString());
+    if (params?.limit) queryParams.append("limit", params.limit.toString());
+
+    const endpoint = `/users/friend-requests/sent${queryParams.toString() ? `?${queryParams}` : ""}`;
+    return makeRequest(endpoint);
+  },
+};
+
+// Contacts API
+export const contactsApi = {
+  addContact: async (userId: string): Promise<ApiResponse<any>> => {
+    return makeRequest(`/users/contacts/add/${userId}`, {
+      method: "POST",
+    });
+  },
+
+  removeContact: async (userId: string): Promise<ApiResponse<any>> => {
+    return makeRequest(`/users/contacts/remove/${userId}`, {
+      method: "DELETE",
+    });
+  },
+
+  getContacts: async (params?: {
+    page?: number;
+    limit?: number;
+  }): Promise<ApiResponse<any>> => {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append("page", params.page.toString());
+    if (params?.limit) queryParams.append("limit", params.limit.toString());
+
+    const endpoint = `/users/contacts${queryParams.toString() ? `?${queryParams}` : ""}`;
+    return makeRequest(endpoint);
+  },
+};
+
+// User Blocking API
+export const blockingApi = {
+  blockUser: async (userId: string): Promise<ApiResponse<any>> => {
+    return makeRequest(`/users/block/${userId}`, {
+      method: "POST",
+    });
+  },
+
+  unblockUser: async (userId: string): Promise<ApiResponse<any>> => {
+    return makeRequest(`/users/unblock/${userId}`, {
+      method: "POST",
+    });
+  },
+
+  getBlockedUsers: async (params?: {
+    page?: number;
+    limit?: number;
+  }): Promise<ApiResponse<any>> => {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append("page", params.page.toString());
+    if (params?.limit) queryParams.append("limit", params.limit.toString());
+
+    const endpoint = `/users/blocked${queryParams.toString() ? `?${queryParams}` : ""}`;
+    return makeRequest(endpoint);
+  },
+};
+
 // Health check
 export const healthApi = {
   check: async (): Promise<ApiResponse> => {
     return makeRequest("/health");
+  },
+};
+
+// Upload API
+export const uploadApi = {
+  uploadAvatar: async (file: File): Promise<ApiResponse<{ avatarUrl: string }>> => {
+    const formData = new FormData();
+    formData.append("avatar", file);
+
+    const token = getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/upload/avatar`, {
+      method: "POST",
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      body: formData,
+    });
+
+    return response.json();
+  },
+
+  uploadMedia: async (file: File): Promise<ApiResponse<{
+    fileUrl: string;
+    fileName: string;
+    fileSize: number;
+    mimeType: string;
+    fileType: "image" | "file" | "voice" | "video";
+  }>> => {
+    const formData = new FormData();
+    formData.append("media", file);
+
+    const token = getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/upload/media`, {
+      method: "POST",
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      body: formData,
+    });
+
+    return response.json();
   },
 };
 
@@ -585,6 +726,10 @@ export const api = {
   chats: chatsApi,
   messages: messagesApi,
   calls: callsApi,
+  friendRequests: friendRequestsApi,
+  contacts: contactsApi,
+  blocking: blockingApi,
+  upload: uploadApi,
   health: healthApi,
 };
 

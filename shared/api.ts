@@ -407,3 +407,87 @@ export interface ExportMessagesResponse
     downloadUrl: string;
     expiresAt: Date;
   }> {}
+
+// Friend Request types
+export interface FriendRequest {
+  _id: string;
+  sender: User | string;
+  receiver: User | string;
+  status: "pending" | "accepted" | "rejected";
+  acceptedAt?: Date;
+  rejectedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Contact types
+export interface Contact {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  username: string;
+  avatar?: string;
+  status: "online" | "away" | "offline";
+  lastSeen: Date;
+}
+
+// Blocked User types
+export interface BlockedUser {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  username: string;
+  avatar?: string;
+}
+
+// Friend Request API responses
+export interface FriendRequestResponse
+  extends ApiResponse<{ friendRequest: FriendRequest }> {}
+
+export interface FriendRequestsResponse
+  extends ApiResponse<{
+    friendRequests: FriendRequest[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {}
+
+// Contact API responses
+export interface ContactsResponse
+  extends ApiResponse<{
+    contacts: Contact[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {}
+
+// Blocked Users API responses
+export interface BlockedUsersResponse
+  extends ApiResponse<{
+    blockedUsers: BlockedUser[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {}
+
+// Upload API responses
+export interface UploadAvatarResponse
+  extends ApiResponse<{ avatarUrl: string }> {}
+
+export interface UploadMediaResponse
+  extends ApiResponse<{
+    fileUrl: string;
+    fileName: string;
+    fileSize: number;
+    mimeType: string;
+    fileType: "image" | "file" | "voice" | "video";
+  }> {}

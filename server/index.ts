@@ -7,6 +7,7 @@ import userRoutes from "./routes/users";
 import chatRoutes from "./routes/chats";
 import messageRoutes from "./routes/messages";
 import callRoutes from "./routes/calls";
+import uploadRoutes from "./routes/upload";
 import { connectDatabase } from "./config/database";
 import { authenticate } from "./middleware/auth";
 import { config, corsConfig, validateConfig } from "./config/config";
@@ -35,6 +36,7 @@ export async function createServer() {
   app.use("/api/chats", chatRoutes);
   app.use("/api/messages", messageRoutes);
   app.use("/api/calls", callRoutes);
+  app.use("/api/upload", uploadRoutes);
 
   // Health check route
   app.get("/api/health", (req, res) => {
@@ -78,6 +80,7 @@ export async function createExpressApp() {
   app.use("/chats", chatRoutes);
   app.use("/messages", messageRoutes);
   app.use("/calls", callRoutes);
+  app.use("/upload", uploadRoutes);
 
   // Health check route
   app.get("/health", (req, res) => {
