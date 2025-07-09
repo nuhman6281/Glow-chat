@@ -27,7 +27,7 @@ import {
   UserX,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { usersApi } from "@/lib/api";
+import { usersApi, contactsApi, friendRequestsApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { AddContactDialog } from "@/components/dialogs/AddContactDialog";
 import { CreateGroupDialog } from "@/components/dialogs/CreateGroupDialog";
@@ -53,20 +53,22 @@ export default function Contacts() {
     queryFn: () => usersApi.getMe(),
   });
 
-  // Get all users (for now, we'll use this as contacts)
+  // Get contacts
   const { data: contactsData, isLoading: isLoadingContacts } = useQuery({
-    queryKey: ["users", "all"],
-    queryFn: () => usersApi.getAllUsers({ limit: 50 }),
+    queryKey: ["contacts"],
+    queryFn: () => contactsApi.getContacts({ limit: 50 }),
   });
 
-  // TODO: Implement friend requests API when available
-  const friendRequests: any[] = [];
+  // Get friend requests
+  const { data: friendRequestsData, isLoading: isLoadingRequests } = useQuery({
+    queryKey: ["friendRequests", "received"],
+    queryFn: () => friendRequestsApi.getReceivedFriendRequests({ limit: 20 }),
+  });
 
   // Accept friend request mutation
   const acceptRequestMutation = useMutation({
     mutationFn: async (requestId: string) => {
-      // TODO: Implement actual API call
-      return Promise.resolve();
+      return friendRequestsApi.acceptFriendRequest(requestId);
     },
     onSuccess: () => {
       toast({
@@ -74,6 +76,7 @@ export default function Contacts() {
         description: "User has been added to your contacts",
       });
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["friendRequests"] });
     },
     onError: () => {
       toast({
@@ -87,14 +90,14 @@ export default function Contacts() {
   // Reject friend request mutation
   const rejectRequestMutation = useMutation({
     mutationFn: async (requestId: string) => {
-      // TODO: Implement actual API call
-      return Promise.resolve();
+      return friendRequestsApi.rejectFriendRequest(requestId);
     },
     onSuccess: () => {
       toast({
         title: "Friend request rejected",
         description: "Request has been declined",
       });
+      queryClient.invalidateQueries({ queryKey: ["friendRequests"] });
     },
     onError: () => {
       toast({
@@ -129,7 +132,8 @@ export default function Contacts() {
     });
   };
 
-  const contacts = contactsData?.data?.users || [];
+  const contacts = contactsData?.data?.contacts || [];
+  const friendRequests = friendRequestsData?.data?.friendRequests || [];
 
   const filteredContacts = contacts.filter(
     (contact: any) =>
@@ -203,25 +207,20 @@ export default function Contacts() {
         </div>
       </div>
 
-      <Tabs
-        value={activeTab}
-        onValueChange={setActiveTab}
-        className="space-y-4"
-      >
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="contacts">Contacts</TabsTrigger>
-          <TabsTrigger value="requests">
-            Friend Requests
-            {friendRequests.length > 0 && (
-              <Badge variant="destructive" className="ml-2">
-                {friendRequests.length}
-              </Badge>
-            )}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="contacts" className="flex items-center gap-2">
+            <Users className="w-4 h-4" />
+            Contacts ({contacts.length})
           </TabsTrigger>
-          <TabsTrigger value="search">Search Users</TabsTrigger>
+          <TabsTrigger value="requests" className="flex items-center gap-2">
+            <UserCheck className="w-4 h-4" />
+            Friend Requests ({friendRequests.length})
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="contacts" className="space-y-4">
+          {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input
@@ -232,209 +231,219 @@ export default function Contacts() {
             />
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>My Contacts ({filteredContacts.length})</CardTitle>
-              <CardDescription>
-                People you can chat and call with
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {isLoadingContacts ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="flex items-center gap-3 p-3">
-                    <Skeleton className="w-10 h-10 rounded-full" />
-                    <div className="flex-1">
-                      <Skeleton className="h-4 w-32 mb-1" />
-                      <Skeleton className="h-3 w-24" />
+          {/* Contacts List */}
+          {isLoadingContacts ? (
+            <div className="space-y-4">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Card key={i}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-4">
+                      <Skeleton className="w-12 h-12 rounded-full" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-3 w-24" />
+                      </div>
+                      <Skeleton className="w-20 h-8" />
                     </div>
-                    <Skeleton className="h-8 w-24" />
-                  </div>
-                ))
-              ) : filteredContacts.length === 0 ? (
-                <div className="text-center py-8">
-                  <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">No contacts found</p>
-                  <p className="text-sm text-muted-foreground">
-                    {searchQuery
-                      ? "Try adjusting your search"
-                      : "Add some contacts to get started"}
-                  </p>
-                </div>
-              ) : (
-                filteredContacts.map((contact: any) => (
-                  <div
-                    key={contact._id}
-                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="relative">
-                      <Avatar className="w-10 h-10">
-                        <AvatarImage src={contact.avatar} />
-                        <AvatarFallback>
-                          {contact.firstName?.[0]}
-                          {contact.lastName?.[0]}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div
-                        className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-background ${getStatusColor(contact.status)}`}
-                      />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : filteredContacts.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No contacts found</h3>
+                <p className="text-muted-foreground mb-4">
+                  {searchQuery
+                    ? "No contacts match your search"
+                    : "Start by adding some contacts"}
+                </p>
+                {!searchQuery && (
+                  <AddContactDialog>
+                    <Button>
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Add Contact
+                    </Button>
+                  </AddContactDialog>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {filteredContacts.map((contact: any) => (
+                <Card key={contact._id}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-4">
+                      <div className="relative">
+                        <Avatar className="w-12 h-12">
+                          <AvatarImage src={contact.avatar} />
+                          <AvatarFallback>
+                            {contact.firstName[0]}
+                            {contact.lastName[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div
+                          className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${getStatusColor(
+                            contact.status,
+                          )}`}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold truncate">
+                          {contact.firstName} {contact.lastName}
+                        </h3>
+                        <p className="text-sm text-muted-foreground truncate">
+                          @{contact.username}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {contact.status === "online"
+                            ? "Online"
+                            : `Last seen ${formatLastSeen(contact.lastSeen)}`}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleStartChat(contact._id)}
+                        >
+                          <MessageCircle className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleCall(contact._id, "voice")}
+                        >
+                          <Phone className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleCall(contact._id, "video")}
+                        >
+                          <Video className="w-4 h-4" />
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="sm" variant="ghost">
+                              <MoreHorizontal className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleStartChat(contact._id)}>
+                              <MessageCircle className="w-4 h-4 mr-2" />
+                              Send Message
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleCall(contact._id, "voice")}>
+                              <Phone className="w-4 h-4 mr-2" />
+                              Voice Call
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleCall(contact._id, "video")}>
+                              <Video className="w-4 h-4 mr-2" />
+                              Video Call
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-red-600">
+                              <UserX className="w-4 h-4 mr-2" />
+                              Remove Contact
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
-
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">
-                        {contact.firstName} {contact.lastName}
-                      </p>
-                      <p className="text-sm text-muted-foreground truncate">
-                        @{contact.username} •{" "}
-                        {contact.status === "online"
-                          ? "Online"
-                          : contact.lastSeen
-                            ? formatLastSeen(contact.lastSeen)
-                            : "Unknown"}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-1">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleStartChat(contact._id)}
-                      >
-                        <MessageCircle className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleCall(contact._id, "voice")}
-                      >
-                        <Phone className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleCall(contact._id, "video")}
-                      >
-                        <Video className="w-4 h-4" />
-                      </Button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button size="sm" variant="ghost">
-                            <MoreHorizontal className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem>View Profile</DropdownMenuItem>
-                          <DropdownMenuItem>Block User</DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive">
-                            Remove Contact
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="requests" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Friend Requests ({friendRequests.length})</CardTitle>
-              <CardDescription>
-                People who want to connect with you
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {friendRequests.length === 0 ? (
-                <div className="text-center py-8">
-                  <UserCheck className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">
-                    No pending friend requests
-                  </p>
-                </div>
-              ) : (
-                friendRequests.map((request) => (
-                  <div
-                    key={request._id}
-                    className="flex items-center gap-3 p-3 rounded-lg border"
-                  >
-                    <Avatar className="w-10 h-10">
-                      <AvatarImage src={request.from.avatar} />
-                      <AvatarFallback>
-                        {request.from.firstName?.[0]}
-                        {request.from.lastName?.[0]}
-                      </AvatarFallback>
-                    </Avatar>
-
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium">
-                        {request.from.firstName} {request.from.lastName}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        @{request.from.username} •{" "}
-                        {request.createdAt
-                          ? formatLastSeen(request.createdAt)
-                          : "Unknown"}
-                      </p>
+          {isLoadingRequests ? (
+            <div className="space-y-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Card key={i}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-4">
+                      <Skeleton className="w-12 h-12 rounded-full" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-3 w-24" />
+                      </div>
+                      <div className="flex gap-2">
+                        <Skeleton className="w-16 h-8" />
+                        <Skeleton className="w-16 h-8" />
+                      </div>
                     </div>
-
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => handleAcceptRequest(request._id)}
-                        disabled={acceptRequestMutation.isPending}
-                      >
-                        <Check className="w-4 h-4 mr-1" />
-                        Accept
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleRejectRequest(request._id)}
-                        disabled={rejectRequestMutation.isPending}
-                      >
-                        <X className="w-4 h-4 mr-1" />
-                        Decline
-                      </Button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="search" className="space-y-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-            <Input
-              placeholder="Search for users by name or username..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Search Results</CardTitle>
-              <CardDescription>Find new people to connect with</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8">
-                <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : friendRequests.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <UserCheck className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No friend requests</h3>
                 <p className="text-muted-foreground">
-                  Search functionality coming soon
+                  You don't have any pending friend requests
                 </p>
-                <p className="text-sm text-muted-foreground">
-                  Use the "Add Contact" button to find and add new contacts
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {friendRequests.map((request: any) => {
+                const sender = typeof request.sender === "object" ? request.sender : null;
+                if (!sender) return null;
+
+                return (
+                  <Card key={request._id}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-4">
+                        <Avatar className="w-12 h-12">
+                          <AvatarImage src={sender.avatar} />
+                          <AvatarFallback>
+                            {sender.firstName[0]}
+                            {sender.lastName[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold truncate">
+                            {sender.firstName} {sender.lastName}
+                          </h3>
+                          <p className="text-sm text-muted-foreground truncate">
+                            @{sender.username}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Sent {formatLastSeen(request.createdAt)}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => handleAcceptRequest(request._id)}
+                            disabled={acceptRequestMutation.isPending}
+                          >
+                            <Check className="w-4 h-4 mr-1" />
+                            Accept
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleRejectRequest(request._id)}
+                            disabled={rejectRequestMutation.isPending}
+                          >
+                            <X className="w-4 h-4 mr-1" />
+                            Decline
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>

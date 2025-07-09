@@ -1,8 +1,9 @@
 import express from "express";
-import { body, query, validationResult } from "express-validator";
+import { body, query, validationResult, param } from "express-validator";
 import User from "../models/User";
 import { authenticate, AuthenticatedRequest } from "../middleware/auth";
 import rateLimit from "express-rate-limit";
+import FriendRequest from "../models/FriendRequest";
 
 const router = express.Router();
 
@@ -388,5 +389,519 @@ router.patch(
     }
   },
 );
+
+// Friend Requests API
+router.post("/friend-requests/send", [
+  body("receiverId").isMongoId().withMessage("Invalid receiver ID"),
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: errors.array(),
+      });
+    }
+
+    const { receiverId } = req.body;
+    const senderId = req.userId;
+
+    // Check if users exist
+    const [sender, receiver] = await Promise.all([
+      User.findById(senderId),
+      User.findById(receiverId),
+    ]);
+
+    if (!sender || !receiver) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Check if request already exists
+    const existingRequest = await FriendRequest.findOne({
+      $or: [
+        { sender: senderId, receiver: receiverId },
+        { sender: receiverId, receiver: senderId },
+      ],
+    });
+
+    if (existingRequest) {
+      return res.status(400).json({
+        success: false,
+        message: "Friend request already exists",
+      });
+    }
+
+    // Create friend request
+    const friendRequest = new FriendRequest({
+      sender: senderId,
+      receiver: receiverId,
+      status: "pending",
+    });
+
+    await friendRequest.save();
+    await friendRequest.populate([
+      { path: "sender", select: "firstName lastName username avatar" },
+      { path: "receiver", select: "firstName lastName username avatar" },
+    ]);
+
+    res.status(201).json({
+      success: true,
+      message: "Friend request sent successfully",
+      data: { friendRequest },
+    });
+  } catch (error) {
+    console.error("Send friend request error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+router.post("/friend-requests/accept/:requestId", [
+  param("requestId").isMongoId().withMessage("Invalid request ID"),
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: errors.array(),
+      });
+    }
+
+    const { requestId } = req.params;
+    const userId = req.userId;
+
+    const friendRequest = await FriendRequest.findOne({
+      _id: requestId,
+      receiver: userId,
+      status: "pending",
+    });
+
+    if (!friendRequest) {
+      return res.status(404).json({
+        success: false,
+        message: "Friend request not found",
+      });
+    }
+
+    // Update request status
+    friendRequest.status = "accepted";
+    friendRequest.acceptedAt = new Date();
+    await friendRequest.save();
+
+    // Add users to each other's contacts
+    await Promise.all([
+      User.findByIdAndUpdate(friendRequest.sender, {
+        $addToSet: { contacts: friendRequest.receiver },
+      }),
+      User.findByIdAndUpdate(friendRequest.receiver, {
+        $addToSet: { contacts: friendRequest.sender },
+      }),
+    ]);
+
+    await friendRequest.populate([
+      { path: "sender", select: "firstName lastName username avatar" },
+      { path: "receiver", select: "firstName lastName username avatar" },
+    ]);
+
+    res.json({
+      success: true,
+      message: "Friend request accepted",
+      data: { friendRequest },
+    });
+  } catch (error) {
+    console.error("Accept friend request error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+router.post("/friend-requests/reject/:requestId", [
+  param("requestId").isMongoId().withMessage("Invalid request ID"),
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: errors.array(),
+      });
+    }
+
+    const { requestId } = req.params;
+    const userId = req.userId;
+
+    const friendRequest = await FriendRequest.findOne({
+      _id: requestId,
+      receiver: userId,
+      status: "pending",
+    });
+
+    if (!friendRequest) {
+      return res.status(404).json({
+        success: false,
+        message: "Friend request not found",
+      });
+    }
+
+    friendRequest.status = "rejected";
+    friendRequest.rejectedAt = new Date();
+    await friendRequest.save();
+
+    res.json({
+      success: true,
+      message: "Friend request rejected",
+    });
+  } catch (error) {
+    console.error("Reject friend request error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+router.get("/friend-requests/received", async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { page = 1, limit = 20 } = req.query;
+
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const friendRequests = await FriendRequest.find({
+      receiver: userId,
+      status: "pending",
+    })
+      .populate("sender", "firstName lastName username avatar")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit));
+
+    const total = await FriendRequest.countDocuments({
+      receiver: userId,
+      status: "pending",
+    });
+
+    res.json({
+      success: true,
+      data: {
+        friendRequests,
+        pagination: {
+          page: Number(page),
+          limit: Number(limit),
+          total,
+          totalPages: Math.ceil(total / Number(limit)),
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Get received friend requests error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+router.get("/friend-requests/sent", async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { page = 1, limit = 20 } = req.query;
+
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const friendRequests = await FriendRequest.find({
+      sender: userId,
+    })
+      .populate("receiver", "firstName lastName username avatar")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit));
+
+    const total = await FriendRequest.countDocuments({
+      sender: userId,
+    });
+
+    res.json({
+      success: true,
+      data: {
+        friendRequests,
+        pagination: {
+          page: Number(page),
+          limit: Number(limit),
+          total,
+          totalPages: Math.ceil(total / Number(limit)),
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Get sent friend requests error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+// Contact Management API
+router.post("/contacts/add/:userId", [
+  param("userId").isMongoId().withMessage("Invalid user ID"),
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: errors.array(),
+      });
+    }
+
+    const { userId } = req.params;
+    const currentUserId = req.userId;
+
+    if (userId === currentUserId) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot add yourself as a contact",
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Add to contacts
+    await User.findByIdAndUpdate(currentUserId, {
+      $addToSet: { contacts: userId },
+    });
+
+    res.json({
+      success: true,
+      message: "Contact added successfully",
+    });
+  } catch (error) {
+    console.error("Add contact error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+router.delete("/contacts/remove/:userId", [
+  param("userId").isMongoId().withMessage("Invalid user ID"),
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: errors.array(),
+      });
+    }
+
+    const { userId } = req.params;
+    const currentUserId = req.userId;
+
+    // Remove from contacts
+    await User.findByIdAndUpdate(currentUserId, {
+      $pull: { contacts: userId },
+    });
+
+    res.json({
+      success: true,
+      message: "Contact removed successfully",
+    });
+  } catch (error) {
+    console.error("Remove contact error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+router.get("/contacts", async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { page = 1, limit = 20 } = req.query;
+
+    const user = await User.findById(userId).populate({
+      path: "contacts",
+      select: "firstName lastName username avatar status lastSeen",
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    const contacts = user.contacts || [];
+    const total = contacts.length;
+
+    res.json({
+      success: true,
+      data: {
+        contacts,
+        pagination: {
+          page: Number(page),
+          limit: Number(limit),
+          total,
+          totalPages: Math.ceil(total / Number(limit)),
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Get contacts error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+// User Blocking API
+router.post("/block/:userId", [
+  param("userId").isMongoId().withMessage("Invalid user ID"),
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: errors.array(),
+      });
+    }
+
+    const { userId } = req.params;
+    const currentUserId = req.userId;
+
+    if (userId === currentUserId) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot block yourself",
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Add to blocked users
+    await User.findByIdAndUpdate(currentUserId, {
+      $addToSet: { blockedUsers: userId },
+      $pull: { contacts: userId }, // Remove from contacts if they were a contact
+    });
+
+    res.json({
+      success: true,
+      message: "User blocked successfully",
+    });
+  } catch (error) {
+    console.error("Block user error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+router.post("/unblock/:userId", [
+  param("userId").isMongoId().withMessage("Invalid user ID"),
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: errors.array(),
+      });
+    }
+
+    const { userId } = req.params;
+    const currentUserId = req.userId;
+
+    // Remove from blocked users
+    await User.findByIdAndUpdate(currentUserId, {
+      $pull: { blockedUsers: userId },
+    });
+
+    res.json({
+      success: true,
+      message: "User unblocked successfully",
+    });
+  } catch (error) {
+    console.error("Unblock user error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+router.get("/blocked", async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { page = 1, limit = 20 } = req.query;
+
+    const user = await User.findById(userId).populate({
+      path: "blockedUsers",
+      select: "firstName lastName username avatar",
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    const blockedUsers = user.blockedUsers || [];
+    const total = blockedUsers.length;
+
+    res.json({
+      success: true,
+      data: {
+        blockedUsers,
+        pagination: {
+          page: Number(page),
+          limit: Number(limit),
+          total,
+          totalPages: Math.ceil(total / Number(limit)),
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Get blocked users error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
 
 export default router;

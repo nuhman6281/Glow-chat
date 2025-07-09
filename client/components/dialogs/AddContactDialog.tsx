@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UserPlus, Search, Check, X } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { usersApi } from "@/lib/api";
+import { usersApi, contactsApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -38,11 +38,10 @@ export function AddContactDialog({ children }: AddContactDialogProps) {
     staleTime: 30000,
   });
 
-  // Add contact mutation - Using updateMe to add to contacts list for now
+  // Add contact mutation
   const addContactMutation = useMutation({
     mutationFn: async (userId: string) => {
-      // TODO: Replace with proper addContact API when available
-      throw new Error("Add contact API not yet implemented");
+      return contactsApi.addContact(userId);
     },
     onSuccess: () => {
       toast({
@@ -50,14 +49,15 @@ export function AddContactDialog({ children }: AddContactDialogProps) {
         description: "User has been added to your contacts",
       });
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["users"] });
       setOpen(false);
       setSearchQuery("");
       setSelectedUsers([]);
     },
     onError: (error: any) => {
       toast({
-        title: "Feature coming soon",
-        description: "Contact management is being implemented",
+        title: "Failed to add contact",
+        description: error.message || "An error occurred while adding the contact",
         variant: "destructive",
       });
     },
