@@ -1,357 +1,526 @@
-# Glow Chat - Production-Ready Real-time Chat Application
+# 🌟 Glow Chat - Real-time Chat Application
 
-A modern, full-stack real-time chat application with voice and video calling capabilities, built with React, Node.js, Socket.IO, and MongoDB.
+A modern, feature-rich real-time chat application built with React, Node.js, MongoDB, and WebRTC. Supports text messaging, file sharing, voice/video calls, screen sharing, and more.
 
-## 🚀 Features
+## ✨ Features
 
-### ✅ Authentication & Security
-- JWT-based authentication
-- User registration and login
-- Password hashing with bcrypt
-- Rate limiting for API endpoints
-- CORS protection
+### 🔧 Core Features
+- **Real-time Messaging** - Instant text messaging with typing indicators
+- **User Authentication** - Secure JWT-based authentication system
+- **Friend Requests** - Send, accept, reject, and manage friend requests
+- **File Sharing** - Upload and share images, documents, and media files
+- **User Profiles** - Customizable user profiles with avatars
 
-### 💬 Real-time Chat
-- One-on-one messaging
-- Group chat support
-- Real-time message delivery
-- Typing indicators
-- Message read receipts
-- Message reactions
-- File and image sharing
-- Voice messages
-- Reply to messages
-- Message editing and deletion
+### 📞 Communication Features
+- **Voice Calls** - High-quality voice calling with WebRTC
+- **Video Calls** - HD video calling with camera controls
+- **Screen Sharing** - Share your screen during calls
+- **Group Calls** - Multi-participant video/voice calls
+- **Call Recording** - Record calls for later playback
 
-### 📞 Voice & Video Calls
-- WebRTC-based calling
-- Voice and video calls
-- Group calls support
-- Call recording capability
-- Call history and statistics
-- Screen sharing (ready for implementation)
+### 🎨 User Experience
+- **Dark/Light Theme** - Toggle between dark and light modes
+- **Sound Notifications** - Customizable notification sounds
+- **Message Search** - Search through chat history with highlighting
+- **Typing Indicators** - See when others are typing
+- **Read Receipts** - Know when messages are read
+- **Online Status** - See who's online and offline
 
-### 👥 Contact Management
-- Add and manage contacts
-- User status indicators (online, away, offline)
-- Contact search and filtering
-- Block/unblock users
-- User profiles with avatars
+### 🔒 Privacy & Security
+- **User Blocking** - Block unwanted users
+- **Privacy Controls** - Control who can see your status and info
+- **Secure File Upload** - Safe file sharing with validation
+- **End-to-end Encryption** - Secure message transmission
 
-### 🎨 Modern UI/UX
-- Responsive design
-- Dark/light theme support
-- Beautiful animations with Framer Motion
-- Modern component library with Radix UI
-- Tailwind CSS for styling
-- Mobile-first approach
-
-## 🛠 Tech Stack
+## 🏗️ Technology Stack
 
 ### Frontend
-- **React 18** - Modern React with hooks
-- **TypeScript** - Type safety and better DX
-- **Vite** - Fast build tool and dev server
-- **Socket.IO Client** - Real-time communication
-- **React Router** - Client-side routing
-- **TanStack Query** - Server state management
-- **Radix UI** - Accessible component primitives
-- **Tailwind CSS** - Utility-first CSS framework
-- **Framer Motion** - Animation library
+- **React 18** with TypeScript
+- **Vite** for fast development and building
+- **Tailwind CSS** for styling
+- **shadcn/ui** for UI components
+- **Socket.IO Client** for real-time communication
+- **React Query** for state management
+- **WebRTC** for peer-to-peer communication
 
 ### Backend
-- **Node.js** - JavaScript runtime
-- **Express.js** - Web application framework
-- **Socket.IO** - Real-time bidirectional communication
-- **MongoDB** - NoSQL database
-- **Mongoose** - MongoDB object modeling
-- **JWT** - JSON Web Tokens for authentication
-- **bcryptjs** - Password hashing
-- **Express Rate Limit** - Rate limiting middleware
-- **Helmet** - Security middleware
+- **Node.js** with Express and TypeScript
+- **MongoDB** with Mongoose ODM
+- **Redis** for session storage and caching
+- **Socket.IO** for WebSocket connections
+- **JWT** for authentication
+- **Multer** for file uploads
+- **bcrypt** for password hashing
 
-### DevOps & Tools
-- **TypeScript** - Static type checking
-- **ESLint** - Code linting
-- **Prettier** - Code formatting
-- **Yarn** - Package management
-- **Docker** - Containerization (optional)
-
-## 📋 Prerequisites
-
-Before running this application, make sure you have the following installed:
-
-- **Node.js** (v18 or higher)
-- **MongoDB** (v4.4 or higher)
-- **Yarn** (v4.x)
+### Infrastructure
+- **Docker** for containerization
+- **Docker Compose** for orchestration
+- **Nginx** for reverse proxy
+- **Coturn** for TURN/STUN server
+- **Prometheus** for monitoring (optional)
+- **Grafana** for dashboards (optional)
 
 ## 🚀 Quick Start
 
+### Prerequisites
+
+- **Docker** and **Docker Compose**
+- **Node.js 18+** (for local development)
+- **Git**
+
 ### 1. Clone the Repository
+
 ```bash
 git clone <repository-url>
-cd glow-lab
+cd glow-chat
 ```
 
-### 2. Install Dependencies
-```bash
-yarn install
-```
+### 2. Environment Setup
 
-### 3. Environment Setup
-Create a `.env` file in the root directory:
+Copy the environment template and configure:
+
 ```bash
 cp .env.example .env
 ```
 
 Edit the `.env` file with your configuration:
+
 ```env
 # Database
-MONGODB_URI=mongodb://localhost:27017/glow-chat
+MONGO_ROOT_USERNAME=admin
+MONGO_ROOT_PASSWORD=your-secure-password
+MONGO_DB_NAME=glow_chat
 
-# JWT Secret (change in production)
-JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+# Redis
+REDIS_PASSWORD=your-redis-password
 
-# Server Configuration
-PORT=3000
-NODE_ENV=development
+# JWT
+JWT_SECRET=your-super-secret-jwt-key
 
-# Client URL for CORS
-CLIENT_URL=http://localhost:8080
-
-# Optional: File Upload (Cloudinary)
-CLOUDINARY_CLOUD_NAME=your-cloud-name
-CLOUDINARY_API_KEY=your-api-key
-CLOUDINARY_API_SECRET=your-api-secret
-
-# Optional: Email Configuration
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-app-password
-
-# Optional: WebRTC Configuration
-TURN_SERVER_URL=turn:your-turn-server.com
+# WebRTC (Optional - for production)
+TURN_SERVER_URL=turn:your-domain.com:3478
 TURN_USERNAME=your-turn-username
-TURN_CREDENTIAL=your-turn-credential
+TURN_PASSWORD=your-turn-password
+TURN_SECRET=your-turn-secret
+
+# Frontend URLs
+VITE_API_URL=http://localhost:3000/api
+VITE_WS_URL=ws://localhost:3000
 ```
 
-### 4. Start MongoDB
-Make sure MongoDB is running on your system:
+### 3. Start the Application
+
 ```bash
-# On macOS with Homebrew
-brew services start mongodb/brew/mongodb-community
-
-# On Ubuntu/Debian
-sudo systemctl start mongod
-
-# Or using Docker
-docker run -d -p 27017:27017 --name mongodb mongo:latest
-```
-
-### 5. Development
-Start the development server:
-```bash
-yarn dev
-```
-
-This will start:
-- Frontend development server on `http://localhost:8080`
-- Backend API server on `http://localhost:3000`
-
-### 6. Production Build
-```bash
-# Build the application
-yarn build
-
-# Start production server
-yarn start
-```
-
-## 🏗 Project Structure
-
-```
-glow-lab/
-├── client/                 # Frontend React application
-│   ├── components/         # Reusable UI components
-│   │   ├── ui/            # Basic UI components (shadcn/ui)
-│   │   ├── chat/          # Chat-specific components
-│   │   └── layout/        # Layout components
-│   ├── contexts/          # React contexts
-│   ├── hooks/             # Custom React hooks
-│   ├── pages/             # Page components
-│   ├── lib/               # Utility functions
-│   └── global.css         # Global styles
-├── server/                # Backend Node.js application
-│   ├── config/            # Configuration files
-│   ├── middleware/        # Express middleware
-│   ├── models/            # Mongoose models
-│   ├── routes/            # API routes
-│   ├── socket/            # Socket.IO handlers
-│   └── index.ts           # Server entry point
-├── shared/                # Shared types and utilities
-│   └── api.ts            # API type definitions
-├── public/               # Static assets
-├── dist/                 # Production build output
-├── package.json          # Dependencies and scripts
-├── vite.config.ts        # Vite configuration
-├── tsconfig.json         # TypeScript configuration
-└── README.md            # This file
-```
-
-## 🔧 API Endpoints
-
-### Authentication
-- `POST /api/auth/register` - User registration
-- `POST /api/auth/login` - User login
-- `POST /api/auth/refresh` - Refresh JWT token
-- `POST /api/auth/logout` - User logout
-
-### Chat (Protected Routes)
-- `GET /api/chats` - Get user's chats
-- `POST /api/chats` - Create new chat
-- `GET /api/chats/:id/messages` - Get chat messages
-- `POST /api/chats/:id/messages` - Send message
-- `PUT /api/messages/:id` - Edit message
-- `DELETE /api/messages/:id` - Delete message
-
-### Users (Protected Routes)
-- `GET /api/users/profile` - Get user profile
-- `PUT /api/users/profile` - Update user profile
-- `GET /api/users/contacts` - Get user contacts
-- `POST /api/users/contacts` - Add contact
-- `DELETE /api/users/contacts/:id` - Remove contact
-
-### Calls (Protected Routes)
-- `GET /api/calls` - Get call history
-- `POST /api/calls` - Initiate call
-- `PUT /api/calls/:id` - Update call status
-
-## 🔌 Socket.IO Events
-
-### Connection Events
-- `connect` - User connected
-- `disconnect` - User disconnected
-
-### Chat Events
-- `join_chat` - Join chat room
-- `leave_chat` - Leave chat room
-- `send_message` - Send message
-- `new_message` - Receive new message
-- `typing_start` - User started typing
-- `typing_stop` - User stopped typing
-- `mark_as_read` - Mark messages as read
-
-### Call Events
-- `initiate_call` - Start a call
-- `incoming_call` - Receive call invitation
-- `answer_call` - Answer call
-- `decline_call` - Decline call
-- `end_call` - End call
-- `webrtc_signal` - WebRTC signaling
-
-### User Events
-- `update_status` - Update user status
-- `contact_status_changed` - Contact status changed
-
-## 🎯 Usage
-
-### 1. User Registration/Login
-- Navigate to the login page
-- Create a new account or sign in with existing credentials
-- You'll be redirected to the main chat interface
-
-### 2. Starting Conversations
-- Click on "Contacts" to view your contacts
-- Click "Add Contact" to add new users
-- Start chatting by clicking on a contact
-
-### 3. Making Calls
-- In any chat, click the phone or video icon to start a call
-- Answer incoming calls from the notification
-
-### 4. Group Chats
-- Create group chats from the sidebar
-- Add multiple participants
-- Enjoy group messaging and calls
-
-## 🔒 Security Features
-
-- **JWT Authentication** - Secure token-based authentication
-- **Password Hashing** - Passwords are hashed using bcrypt
-- **Rate Limiting** - Prevents abuse of API endpoints
-- **CORS Protection** - Controls cross-origin requests
-- **Input Validation** - Server-side validation using express-validator
-- **Helmet Security** - Sets various HTTP headers for security
-
-## 🚀 Deployment
-
-### Using Docker (Recommended)
-```bash
-# Build the application
-yarn build
-
-# Run with Docker Compose
+# Start all services
 docker-compose up -d
+
+# Or start with monitoring
+docker-compose --profile monitoring up -d
+
+# Or start with nginx reverse proxy
+docker-compose --profile nginx up -d
 ```
 
-### Manual Deployment
-1. Set up a production MongoDB instance
-2. Configure environment variables for production
-3. Build the application: `yarn build`
-4. Start the production server: `yarn start`
-5. Set up a reverse proxy (nginx) for SSL and load balancing
+### 4. Verify Deployment
+
+Run the deployment test script:
+
+```bash
+./scripts/test-deployment.sh
+```
+
+### 5. Access the Application
+
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:3000/api
+- **API Documentation**: http://localhost:3000/api-docs (if enabled)
+- **Monitoring**: http://localhost:3001 (Grafana, if using monitoring profile)
+
+## 🔧 Development Setup
+
+### Local Development
+
+1. **Install Dependencies**
+
+```bash
+# Install server dependencies
+cd server
+npm install
+
+# Install client dependencies
+cd ../client
+npm install
+```
+
+2. **Start Development Servers**
+
+```bash
+# Start MongoDB and Redis
+docker-compose up mongodb redis -d
+
+# Start backend (in server directory)
+npm run dev
+
+# Start frontend (in client directory)
+npm run dev
+```
+
+3. **Database Setup**
+
+```bash
+# Seed database with test data
+cd server
+npm run seed
+```
+
+### Testing
+
+```bash
+# Run backend tests
+cd server
+npm test
+
+# Run frontend tests
+cd client
+npm test
+
+# Run E2E tests
+npm run test:e2e
+
+# Run deployment tests
+./scripts/test-deployment.sh
+```
+
+## 📁 Project Structure
+
+```
+glow-chat/
+├── client/                 # React frontend
+│   ├── src/
+│   │   ├── components/     # React components
+│   │   ├── hooks/          # Custom hooks
+│   │   ├── lib/            # Utilities and API
+│   │   ├── pages/          # Page components
+│   │   └── contexts/       # React contexts
+│   ├── public/
+│   │   └── sounds/         # Notification sounds
+│   └── package.json
+├── server/                 # Node.js backend
+│   ├── src/
+│   │   ├── routes/         # API routes
+│   │   ├── models/         # Database models
+│   │   ├── middleware/     # Express middleware
+│   │   ├── socket/         # Socket.IO handlers
+│   │   └── config/         # Configuration files
+│   └── package.json
+├── shared/                 # Shared TypeScript types
+├── scripts/                # Deployment and utility scripts
+├── docker-compose.yml      # Docker orchestration
+├── Dockerfile.server       # Server container
+├── Dockerfile.client       # Client container
+└── README.md
+```
+
+## 🔌 API Documentation
+
+### Authentication Endpoints
+
+```
+POST /api/auth/register     # Register new user
+POST /api/auth/login        # Login user
+POST /api/auth/logout       # Logout user
+POST /api/auth/refresh      # Refresh JWT token
+```
+
+### User Endpoints
+
+```
+GET    /api/users/me        # Get current user
+PUT    /api/users/me        # Update current user
+GET    /api/users           # Get all users
+GET    /api/users/:id       # Get user by ID
+POST   /api/users/block/:id # Block user
+DELETE /api/users/block/:id # Unblock user
+```
+
+### Chat Endpoints
+
+```
+GET    /api/chats           # Get user's chats
+POST   /api/chats           # Create new chat
+GET    /api/chats/:id       # Get chat by ID
+PUT    /api/chats/:id       # Update chat
+DELETE /api/chats/:id       # Delete chat
+```
+
+### Message Endpoints
+
+```
+GET    /api/messages/:chatId    # Get chat messages
+POST   /api/messages            # Send message
+PUT    /api/messages/:id        # Update message
+DELETE /api/messages/:id        # Delete message
+```
+
+### Friend Request Endpoints
+
+```
+POST   /api/friend-requests/send/:userId     # Send friend request
+POST   /api/friend-requests/accept/:id       # Accept friend request
+POST   /api/friend-requests/reject/:id       # Reject friend request
+DELETE /api/friend-requests/cancel/:id       # Cancel friend request
+GET    /api/friend-requests/received         # Get received requests
+GET    /api/friend-requests/sent             # Get sent requests
+```
+
+### Call Endpoints
+
+```
+POST   /api/calls           # Initiate call
+GET    /api/calls/:id       # Get call details
+PATCH  /api/calls/:id       # Update call status
+GET    /api/calls/ongoing   # Get ongoing calls
+```
+
+### WebRTC Endpoints
+
+```
+GET    /api/webrtc/ice-servers   # Get ICE servers config
+POST   /api/webrtc/test          # Test connectivity
+GET    /api/webrtc/stats         # Get WebRTC statistics
+POST   /api/webrtc/report-issue  # Report issues
+```
+
+## 🌐 Production Deployment
+
+### Cloud Deployment Options
+
+#### 1. AWS ECS/Fargate
+```bash
+# Build and push to ECR
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <account>.dkr.ecr.us-east-1.amazonaws.com
+docker build -f Dockerfile.server -t glow-chat-server .
+docker tag glow-chat-server:latest <account>.dkr.ecr.us-east-1.amazonaws.com/glow-chat-server:latest
+docker push <account>.dkr.ecr.us-east-1.amazonaws.com/glow-chat-server:latest
+```
+
+#### 2. Google Cloud Run
+```bash
+# Build and deploy
+gcloud builds submit --tag gcr.io/PROJECT_ID/glow-chat-server
+gcloud run deploy --image gcr.io/PROJECT_ID/glow-chat-server --platform managed
+```
+
+#### 3. DigitalOcean App Platform
+```yaml
+# app.yaml
+name: glow-chat
+services:
+- name: backend
+  source_dir: /
+  dockerfile_path: Dockerfile.server
+  instance_count: 1
+  instance_size_slug: basic-xxs
+- name: frontend
+  source_dir: /
+  dockerfile_path: Dockerfile.client
+  instance_count: 1
+  instance_size_slug: basic-xxs
+```
 
 ### Environment Variables for Production
+
 ```env
+# Production Environment
 NODE_ENV=production
-MONGODB_URI=mongodb://your-production-db-url
-JWT_SECRET=your-super-secure-jwt-secret
-PORT=3000
-CLIENT_URL=https://your-domain.com
+
+# Database (use managed service in production)
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/glow_chat
+
+# Redis (use managed service in production)
+REDIS_URL=redis://username:password@redis.provider.com:6379
+
+# Security
+JWT_SECRET=very-long-random-string-for-production
+CORS_ORIGIN=https://yourdomain.com
+
+# WebRTC (use TURN service like Twilio)
+TURN_SERVER_URL=turn:global.turn.twilio.com:3478
+TURN_USERNAME=your-twilio-username
+TURN_PASSWORD=your-twilio-password
+
+# Monitoring
+ENABLE_LOGGING=true
+LOG_LEVEL=info
 ```
 
-## 🧪 Testing
+### SSL/HTTPS Setup
+
+For production deployment with SSL:
+
+1. **Obtain SSL certificates** (Let's Encrypt, CloudFlare, etc.)
+2. **Update nginx configuration** with SSL settings
+3. **Use HTTPS URLs** in environment variables
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name yourdomain.com;
+    
+    ssl_certificate /etc/nginx/certs/cert.pem;
+    ssl_certificate_key /etc/nginx/certs/key.pem;
+    
+    # Your existing configuration...
+}
+```
+
+## 📊 Monitoring and Logging
+
+### Prometheus Metrics
+
+The application exposes metrics at `/metrics` endpoint:
+
+- **HTTP request duration**
+- **Active WebSocket connections**
+- **Database query performance**
+- **Memory and CPU usage**
+
+### Grafana Dashboards
+
+Pre-configured dashboards for:
+
+- **Application Performance**
+- **Database Metrics**
+- **WebRTC Call Quality**
+- **User Activity**
+
+Access Grafana at http://localhost:3001 (default: admin/admin)
+
+### Log Aggregation
+
+Logs are structured and can be easily integrated with:
+
+- **ELK Stack** (Elasticsearch, Logstash, Kibana)
+- **Fluentd**
+- **CloudWatch** (AWS)
+- **Stackdriver** (Google Cloud)
+
+## 🔧 Configuration
+
+### Feature Flags
+
+Enable/disable features via environment variables:
+
+```env
+ENABLE_FRIEND_REQUESTS=true
+ENABLE_GROUP_CHAT=true
+ENABLE_FILE_UPLOAD=true
+ENABLE_VOICE_CALLS=true
+ENABLE_VIDEO_CALLS=true
+ENABLE_SCREEN_SHARE=true
+```
+
+### Rate Limiting
+
+Configure API rate limiting:
+
+```env
+RATE_LIMIT_WINDOW=15        # Minutes
+RATE_LIMIT_MAX=100          # Requests per window
+```
+
+### File Upload Limits
+
+```env
+MAX_FILE_SIZE=50mb          # Maximum file size
+UPLOAD_DIR=/app/uploads     # Upload directory
+```
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+1. **WebRTC connections fail**
+   - Check TURN server configuration
+   - Verify firewall settings
+   - Test with `./scripts/test-deployment.sh`
+
+2. **Database connection errors**
+   - Verify MongoDB URI
+   - Check network connectivity
+   - Ensure credentials are correct
+
+3. **Frontend not loading**
+   - Check if backend is running
+   - Verify API URL configuration
+   - Check browser console for errors
+
+4. **File uploads failing**
+   - Check upload directory permissions
+   - Verify file size limits
+   - Ensure proper CORS configuration
+
+### Debug Mode
+
+Enable debug mode for detailed logging:
+
+```env
+DEBUG=true
+LOG_LEVEL=debug
+```
+
+### Health Checks
+
+Monitor application health:
 
 ```bash
-# Run tests
-yarn test
+# API health
+curl http://localhost:3000/api/health
 
-# Run tests in watch mode
-yarn test:watch
+# Database health
+docker exec glow-chat-mongodb mongosh --eval "db.adminCommand('ping')"
 
-# Run type checking
-yarn typecheck
+# Redis health
+docker exec glow-chat-redis redis-cli ping
 ```
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/new-feature`
-3. Commit your changes: `git commit -am 'Add new feature'`
-4. Push to the branch: `git push origin feature/new-feature`
-5. Submit a pull request
+1. **Fork the repository**
+2. **Create a feature branch** (`git checkout -b feature/amazing-feature`)
+3. **Commit your changes** (`git commit -m 'Add amazing feature'`)
+4. **Push to the branch** (`git push origin feature/amazing-feature`)
+5. **Open a Pull Request**
 
-## 📝 License
+### Development Guidelines
+
+- **Follow TypeScript strict mode**
+- **Write tests for new features**
+- **Use conventional commit messages**
+- **Update documentation**
+- **Run linting before committing**
+
+## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🆘 Support
 
-If you encounter any issues or have questions:
+- **Documentation**: Check this README and inline comments
+- **Issues**: Open an issue on GitHub
+- **Discussions**: Use GitHub Discussions for questions
 
-1. Check the [Issues](https://github.com/your-repo/issues) section
-2. Create a new issue with detailed information
-3. Join our community discussions
+## 🎯 Roadmap
 
-## 🙏 Acknowledgments
-
-- [React](https://reactjs.org/) - The web framework used
-- [Socket.IO](https://socket.io/) - Real-time communication
-- [MongoDB](https://www.mongodb.com/) - Database
-- [Tailwind CSS](https://tailwindcss.com/) - CSS framework
-- [Radix UI](https://www.radix-ui.com/) - Component primitives
+- [ ] **Mobile App** - React Native mobile application
+- [ ] **AI Integration** - ChatGPT-like AI assistant
+- [ ] **Message Encryption** - End-to-end encryption
+- [ ] **Voice Messages** - Audio message support
+- [ ] **Emoji Reactions** - React to messages with emojis
+- [ ] **Message Threading** - Threaded conversations
+- [ ] **Custom Themes** - User-created themes
+- [ ] **Bot Framework** - Create and deploy chat bots
 
 ---
 
-Built with ❤️ by the Glow Chat team
+**Made with ❤️ by the Glow Chat Team**

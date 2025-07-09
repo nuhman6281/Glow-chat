@@ -9,6 +9,7 @@ import messageRoutes from "./routes/messages";
 import callRoutes from "./routes/calls";
 import uploadRoutes from "./routes/upload";
 import friendRequestRoutes from "./routes/friendRequests";
+import webrtcRoutes from "./routes/webrtc";
 import { connectDatabase } from "./config/database";
 import { authenticate } from "./middleware/auth";
 import { config, corsConfig, validateConfig } from "./config/config";
@@ -39,6 +40,7 @@ export async function createServer() {
   app.use("/api/calls", callRoutes);
   app.use("/api/upload", uploadRoutes);
   app.use("/api/friend-requests", friendRequestRoutes);
+  app.use("/api/webrtc", webrtcRoutes);
 
   // Health check route
   app.get("/api/health", (req, res) => {
@@ -84,6 +86,7 @@ export async function createExpressApp() {
   app.use("/calls", callRoutes);
   app.use("/upload", uploadRoutes);
   app.use("/friend-requests", friendRequestRoutes);
+  app.use("/webrtc", webrtcRoutes);
 
   // Health check route
   app.get("/health", (req, res) => {

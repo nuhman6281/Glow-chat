@@ -725,6 +725,56 @@ export const uploadApi = {
   },
 };
 
+// WebRTC API
+export const webrtcApi = {
+  getIceServers: async (): Promise<ApiResponse<{
+    iceServers: RTCIceServer[];
+    iceTransportPolicy: string;
+    bundlePolicy: string;
+    rtcpMuxPolicy: string;
+    iceCandidatePoolSize: number;
+  }>> => {
+    return makeRequest("/webrtc/ice-servers");
+  },
+
+  testConnectivity: async (testData: {
+    candidateType: string;
+    protocol: string;
+    address: string;
+    port: number;
+  }): Promise<ApiResponse<any>> => {
+    return makeRequest("/webrtc/test", {
+      method: "POST",
+      body: JSON.stringify(testData),
+    });
+  },
+
+  getStats: async (): Promise<ApiResponse<{
+    totalCalls: number;
+    activeCalls: number;
+    averageCallDuration: number;
+    connectionSuccess: number;
+    turnServerUsage: { stun: number; turn: number };
+    networkTypes: { wifi: number; cellular: number; ethernet: number };
+  }>> => {
+    return makeRequest("/webrtc/stats");
+  },
+
+  reportIssue: async (issueData: {
+    issueType: string;
+    description: string;
+    callId?: string;
+    errorMessage?: string;
+    browserInfo?: any;
+    networkInfo?: any;
+  }): Promise<ApiResponse<{ reportId: string }>> => {
+    return makeRequest("/webrtc/report-issue", {
+      method: "POST",
+      body: JSON.stringify(issueData),
+    });
+  },
+};
+
 // Export all APIs
 export const api = {
   auth: authApi,
@@ -737,6 +787,7 @@ export const api = {
   blocking: blockingApi,
   upload: uploadApi,
   health: healthApi,
+  webrtc: webrtcApi,
 };
 
 export default api;

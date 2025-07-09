@@ -1,0 +1,52 @@
+{
+  "sounds": {
+    "notification": "/sounds/notification.mp3",
+    "message": "/sounds/message.mp3",
+    "callIncoming": "/sounds/call-incoming.mp3",
+    "callOutgoing": "/sounds/call-outgoing.mp3",
+    "callEnd": "/sounds/call-end.mp3",
+    "typing": "/sounds/typing.mp3"
+  },
+  "volume": {
+    "default": 70,
+    "min": 0,
+    "max": 100
+  },
+  "formats": [
+    "mp3",
+    "wav",
+    "ogg"
+  ],
+  "fallbacks": {
+    "notification": [
+      "/sounds/notification.mp3",
+      "/sounds/notification.wav",
+      "/sounds/notification.ogg"
+    ],
+    "message": [
+      "/sounds/message.mp3",
+      "/sounds/message.wav",
+      "/sounds/message.ogg"
+    ],
+    "callIncoming": [
+      "/sounds/call-incoming.mp3",
+      "/sounds/call-incoming.wav",
+      "/sounds/call-incoming.ogg"
+    ],
+    "callOutgoing": [
+      "/sounds/call-outgoing.mp3",
+      "/sounds/call-outgoing.wav",
+      "/sounds/call-outgoing.ogg"
+    ],
+    "callEnd": [
+      "/sounds/call-end.mp3",
+      "/sounds/call-end.wav",
+      "/sounds/call-end.ogg"
+    ],
+    "typing": [
+      "/sounds/typing.mp3",
+      "/sounds/typing.wav",
+      "/sounds/typing.ogg"
+    ]
+  }
+}

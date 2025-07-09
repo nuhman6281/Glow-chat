@@ -1,6 +1,8 @@
 // WebRTC Manager for Glow Chat
 // Handles video/voice calls, screen sharing, and real-time communication
 
+import { webrtcApi } from "./api";
+
 export interface CallConfig {
   iceServers: RTCIceServer[];
   videoConstraints: MediaTrackConstraints;
@@ -78,19 +80,51 @@ class WebRTCManager {
     this.initializeConfig();
   }
 
-  private async initializeConfig() {
-    // Load TURN server configuration from environment
-    const turnServerUrl = (window as any).ENV?.TURN_SERVER_URL;
-    const turnUsername = (window as any).ENV?.TURN_USERNAME;
-    const turnCredential = (window as any).ENV?.TURN_CREDENTIAL;
-
-    if (turnServerUrl && turnUsername && turnCredential) {
-      this.config.iceServers.push({
-        urls: turnServerUrl,
-        username: turnUsername,
-        credential: turnCredential,
-      });
+  private async loadIceServers(): Promise<RTCIceServer[]> {
+    try {
+      const response = await webrtcApi.getIceServers();
+      if (response.success && response.data) {
+        return response.data.iceServers;
+      }
+    } catch (error) {
+      console.error("Failed to load ICE servers from API:", error);
+      // Report the issue
+      await webrtcApi.reportIssue({
+        issueType: "ice_server_fetch_failed",
+        description: "Failed to fetch ICE servers from API",
+        errorMessage: error instanceof Error ? error.message : "Unknown error",
+        browserInfo: this.getBrowserInfo(),
+      }).catch(() => {}); // Ignore reporting errors
     }
+    
+    // Return default STUN servers as fallback
+    return [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun1.l.google.com:19302" },
+    ];
+  }
+
+  private async initializeConfig() {
+    // Load ICE servers from API
+    try {
+      const iceServers = await this.loadIceServers();
+      this.config.iceServers = iceServers;
+    } catch (error) {
+      console.error("Failed to initialize WebRTC config:", error);
+    }
+  }
+
+  private getBrowserInfo() {
+    return {
+      userAgent: navigator.userAgent,
+      platform: navigator.platform,
+      language: navigator.language,
+      cookieEnabled: navigator.cookieEnabled,
+      onLine: navigator.onLine,
+      webrtcSupported: !!(window.RTCPeerConnection || (window as any).webkitRTCPeerConnection),
+      getUserMediaSupported: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+      getDisplayMediaSupported: !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia),
+    };
   }
 
   public setCallStateChangeCallback(callback: (state: CallState) => void) {
